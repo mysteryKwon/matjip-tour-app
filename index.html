@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ff7a45">
+<title>맛집투어관리</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#ffffff; --text:#241f1c; --muted:#8a8178;
+    --border:#e8e2da; --accent:#ff7a45; --accent-dim:#ffe3d3;
+    --danger:#e0503a; --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  [data-theme="dark"]{
+    --bg:#181513; --card:#241f1c; --text:#f3ede6; --muted:#a89d90;
+    --border:#39322c; --accent:#ff8a5c; --accent-dim:#4a2c1c; --danger:#ff6b52;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#181513; --card:#241f1c; --text:#f3ede6; --muted:#a89d90;
+      --border:#39322c; --accent:#ff8a5c; --accent-dim:#4a2c1c; --danger:#ff6b52;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding-top:var(--safe-top);}
+  img{max-width:100%;}
+  [hidden]{display:none!important;}
+  header.topbar{position:sticky;top:0;padding-top:var(--safe-top);background:var(--bg);z-index:20;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
+  header.topbar h1{font-size:17px;margin:0;display:flex;align-items:center;gap:6px;}
+  header.topbar .ver{font-size:11px;color:var(--muted);}
+  main{padding:12px 14px calc(76px + var(--safe-bottom));max-width:640px;margin:0 auto;min-height:70vh;}
+  section.tab{display:none;}
+  section.tab.active{display:block;}
+  nav.tabbar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--border);padding-bottom:var(--safe-bottom);z-index:30;}
+  nav.tabbar button{flex:1;background:none;border:none;padding:9px 2px 8px;color:var(--muted);font-size:10.5px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;}
+  nav.tabbar button .ic{font-size:19px;}
+  nav.tabbar button.active{color:var(--accent);}
+  h2.section-title{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;}
+  h2.section-title:first-child{margin-top:0;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;}
+  label.field{display:block;margin-bottom:14px;}
+  label.field .lbl{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600;}
+  input[type=text],input[type=number],input[type=date],input[type=time],textarea,select{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:14.5px;font-family:inherit;
+  }
+  textarea{min-height:64px;resize:vertical;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{padding:7px 13px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;user-select:none;}
+  .chip.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .stars{display:flex;gap:4px;font-size:26px;cursor:pointer;}
+  .stars .star{color:var(--border);}
+  .stars .star.filled{color:var(--accent);}
+  .yn-toggle{display:flex;gap:8px;}
+  .yn-toggle button{flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13.5px;cursor:pointer;}
+  .yn-toggle button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .photo-row{display:flex;gap:8px;margin-bottom:8px;}
+  .photo-btn{flex:1;padding:12px;border:1px dashed var(--border);border-radius:10px;background:var(--bg);color:var(--muted);font-size:13px;text-align:center;cursor:pointer;}
+  .photo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
+  .photo-thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--border);}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;}
+  .photo-thumb .rm{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;}
+  .btn{display:inline-block;padding:12px 18px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:14.5px;font-weight:600;cursor:pointer;width:100%;}
+  .btn.secondary{background:var(--bg);color:var(--text);border:1px solid var(--border);}
+  .btn.danger{background:var(--danger);}
+  .btn.small{width:auto;padding:8px 14px;font-size:13px;}
+  .visit-card{display:flex;gap:10px;}
+  .visit-card .thumb{width:64px;height:64px;border-radius:10px;background:var(--accent-dim);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:22px;}
+  .visit-card .thumb img{width:100%;height:100%;object-fit:cover;}
+  .visit-card .body{flex:1;min-width:0;}
+  .visit-card .row1{display:flex;justify-content:space-between;align-items:baseline;gap:6px;}
+  .visit-card .name{font-weight:700;font-size:15px;}
+  .visit-card .meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .visit-card .rating{color:var(--accent);font-size:12.5px;}
+  .visit-card .check{width:20px;height:20px;flex-shrink:0;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--accent-dim);color:var(--accent);font-size:11px;margin-right:4px;}
+  .toolbar{display:flex;gap:8px;margin-bottom:10px;align-items:center;}
+  .toolbar input[type=text]{flex:1;}
+  .empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:13.5px;}
+  #mapView{width:100%;height:calc(100vh - 220px);min-height:340px;border-radius:14px;overflow:hidden;background:var(--border);}
+  .gallery-group h3{font-size:13.5px;color:var(--muted);margin:16px 0 8px;}
+  .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .gallery-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .stat-tile{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;}
+  .stat-tile .num{font-size:22px;font-weight:700;}
+  .stat-tile .lbl{font-size:12px;color:var(--muted);margin-top:2px;}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px;}
+  .bar-row .name{width:70px;flex-shrink:0;color:var(--muted);}
+  .bar-row .bar-bg{flex:1;height:9px;background:var(--border);border-radius:5px;overflow:hidden;}
+  .bar-row .bar-fill{height:100%;background:var(--accent);}
+  .bar-row .val{width:56px;text-align:right;color:var(--muted);flex-shrink:0;}
+  .seg{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:3px;margin-bottom:14px;}
+  .seg button{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;}
+  .seg button.active{background:var(--accent);color:#fff;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:flex-end;justify-content:center;}
+  .modal-overlay.center{align-items:center;padding:20px;}
+  .modal-sheet{background:var(--card);width:100%;max-width:640px;max-height:85vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px;}
+  .modal-overlay.center .modal-sheet{border-radius:18px;}
+  .modal-sheet h3{margin-top:0;}
+  .modal-sheet textarea.draft{min-height:280px;font-size:13.5px;line-height:1.5;}
+  .close-x{float:right;background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;display:flex;align-items:center;justify-content:center;}
+  .lightbox img{max-width:94%;max-height:90%;object-fit:contain;}
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#000;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:300;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .toast.show{opacity:.92;}
+  .settings-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}
+  .settings-row:last-child{border-bottom:none;}
+  .settings-row .lbl{font-size:14px;}
+  .settings-row .sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .member-tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:5px 6px 5px 12px;font-size:13px;margin:3px 4px 3px 0;}
+  .member-tag button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.0</span></h1>
+  <span id="whoTag" class="ver"></span>
+</header>
+
+<main>
+
+  <!-- 입력 -->
+  <section class="tab active" id="tab-input">
+    <h2 class="section-title">방문 기록 추가</h2>
+    <div class="card">
+      <label class="field"><span class="lbl">방문일 · 시간</span>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="f_date">
+          <input type="time" id="f_time">
+        </div>
+      </label>
+      <label class="field"><span class="lbl">가게명 *</span><input type="text" id="f_name" placeholder="예: OO식당"></label>
+      <label class="field"><span class="lbl">위치 (주소 / 지역명)</span><input type="text" id="f_loc" placeholder="예: 서울 마포구 OO동"></label>
+      <label class="field"><span class="lbl">음식 카테고리 (다중 선택)</span>
+        <div class="chips" id="f_cat"></div>
+      </label>
+      <label class="field"><span class="lbl">먹은 메뉴</span><input type="text" id="f_menu" placeholder="쉼표로 여러 개 입력 가능"></label>
+      <label class="field"><span class="lbl">평점</span>
+        <div class="stars" id="f_rating">
+          <span class="star" data-v="1">★</span><span class="star" data-v="2">★</span><span class="star" data-v="3">★</span><span class="star" data-v="4">★</span><span class="star" data-v="5">★</span>
+        </div>
+      </label>
+      <label class="field"><span class="lbl">지출금액 (원)</span><input type="number" id="f_price" placeholder="예: 12000"></label>
+      <label class="field"><span class="lbl">재방문 의사</span>
+        <div class="yn-toggle" id="f_revisit"><button data-v="Y">👍 예</button><button data-v="N">👎 아니오</button></div>
+      </label>
+      <label class="field"><span class="lbl">영업시간</span><input type="text" id="f_hours" placeholder="예: 11:00~21:00, 브레이크타임 15~17시"></label>
+      <label class="field"><span class="lbl">주차 가능 여부</span>
+        <div class="yn-toggle" id="f_parking"><button data-v="Y">가능</button><button data-v="N">불가</button></div>
+      </label>
+      <label class="field"><span class="lbl">웨이팅 시간</span><input type="text" id="f_waiting" placeholder="예: 15분 / 없음"></label>
+      <label class="field"><span class="lbl">동행자</span><input type="text" id="f_companions" placeholder="쉼표로 여러 명 입력 가능"></label>
+      <label class="field"><span class="lbl">사진</span>
+        <div class="photo-row">
+          <label class="photo-btn">📷 촬영<input type="file" accept="image/*" capture="environment" id="f_photo_camera" hidden></label>
+          <label class="photo-btn">🖼 갤러리<input type="file" accept="image/*" multiple id="f_photo_gallery" hidden></label>
+        </div>
+        <div class="photo-grid" id="f_photo_preview"></div>
+      </label>
+      <label class="field"><span class="lbl">메모</span><textarea id="f_memo" placeholder="맛, 분위기, 서비스 등 자유롭게"></textarea></label>
+      <button class="btn" id="btnSubmitVisit">저장하기</button>
+    </div>
+  </section>
+
+  <!-- 목록 -->
+  <section class="tab" id="tab-list">
+    <h2 class="section-title">방문 기록 목록</h2>
+    <div class="toolbar">
+      <input type="text" id="listSearch" placeholder="가게명 · 메뉴 · 지역 검색">
+      <button class="btn small secondary" id="btnSelectMode">선택</button>
+    </div>
+    <div class="toolbar" id="selectToolbar" hidden>
+      <span id="selectCount" style="font-size:13px;color:var(--muted);">0개 선택</span>
+      <button class="btn small" id="btnMakeDraft">📝 블로그 초안 만들기</button>
+    </div>
+    <div id="listContainer"></div>
+  </section>
+
+  <!-- 지도 -->
+  <section class="tab" id="tab-map">
+    <h2 class="section-title">방문 지도</h2>
+    <div id="mapView"></div>
+    <p id="mapHint" class="empty" hidden>설정 탭에서 구글맵 API 키를 config.json에 등록하면 지도가 표시됩니다.</p>
+  </section>
+
+  <!-- 사진첩 -->
+  <section class="tab" id="tab-gallery">
+    <h2 class="section-title">사진첩</h2>
+    <div id="galleryContainer"></div>
+  </section>
+
+  <!-- 통계 -->
+  <section class="tab" id="tab-stats">
+    <h2 class="section-title">통계</h2>
+    <div class="seg" id="statPeriod">
+      <button data-v="year" class="active">연도별</button>
+      <button data-v="month">월별</button>
+      <button data-v="day">일별</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="num" id="statVisitCount">0</div><div class="lbl">방문 횟수</div></div>
+      <div class="stat-tile"><div class="num" id="statTotalSpend">0원</div><div class="lbl">총 지출</div></div>
+      <div class="stat-tile"><div class="num" id="statAvgRating">0.0</div><div class="lbl">평균 평점</div></div>
+      <div class="stat-tile"><div class="num" id="statAvgSpend">0원</div><div class="lbl">1회 평균 지출</div></div>
+    </div>
+    <h2 class="section-title">카테고리별 집계</h2>
+    <div class="card" id="statCategoryBars"></div>
+  </section>
+
+  <!-- 설정 -->
+  <section class="tab" id="tab-settings">
+    <h2 class="section-title">내 정보</h2>
+    <div class="card">
+      <label class="field"><span class="lbl">내 이름 (등록자로 표시됩니다)</span><input type="text" id="s_myname" placeholder="예: 홍길동"></label>
+      <button class="btn secondary small" id="btnSaveName">이름 저장</button>
+    </div>
+
+    <h2 class="section-title">그룹 공유</h2>
+    <div class="card">
+      <div class="settings-row">
+        <div><div class="lbl">그룹 모드</div><div class="sub">켜면 같은 그룹 구성원의 기록을 함께 봅니다</div></div>
+        <div class="yn-toggle" style="width:120px;" id="s_groupMode"><button data-v="on">켜짐</button><button data-v="off">꺼짐</button></div>
+      </div>
+      <div id="groupDetail"></div>
+    </div>
+
+    <h2 class="section-title">화면</h2>
+    <div class="card">
+      <div class="settings-row"><div class="lbl">테마</div>
+        <select id="s_theme" style="width:130px;">
+          <option value="system">시스템 설정</option>
+          <option value="light">라이트</option>
+          <option value="dark">다크</option>
+        </select>
+      </div>
+    </div>
+
+    <h2 class="section-title">시스템</h2>
+    <div class="card">
+      <div class="settings-row"><div class="lbl">API 연결 상태</div><div class="sub" id="s_apiStatus">확인 중…</div></div>
+      <div class="settings-row"><div class="lbl">앱 버전</div><div class="sub" id="s_version">-</div></div>
+      <button class="btn secondary small" id="btnFixSheet" style="margin-top:10px;">예전 기록 정렬 점검하기</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button data-tab="tab-input" class="active"><span class="ic">✏️</span>입력</button>
+  <button data-tab="tab-list"><span class="ic">📋</span>목록</button>
+  <button data-tab="tab-map"><span class="ic">🗺️</span>지도</button>
+  <button data-tab="tab-gallery"><span class="ic">🖼️</span>사진첩</button>
+  <button data-tab="tab-stats"><span class="ic">📊</span>통계</button>
+  <button data-tab="tab-settings"><span class="ic">⚙️</span>설정</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   맛집투어관리 앱 — 프론트엔드
+   ========================================================================= */
+var APP_VERSION = '1.0.0';
+var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
+var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
+var STATE = {
+  visits: [],
+  groups: [],
+  myName: localStorage.getItem('mt_myname') || '',
+  groupMode: localStorage.getItem('mt_groupmode') === 'on',
+  myGroupId: localStorage.getItem('mt_groupid') || '',
+  theme: localStorage.getItem('mt_theme') || 'system',
+  selectedCats: [],
+  rating: 0,
+  revisit: '',
+  parking: '',
+  photos: [], // {fileId,url,thumbUrl} uploaded so far for the form in progress
+  selectMode: false,
+  selectedIds: {},
+  mapLoaded: false,
+  markers: []
+};
+
+document.getElementById('verTag').textContent = 'v' + APP_VERSION;
+
+// ---------------------------------------------------------------------
+// 초기화
+// ---------------------------------------------------------------------
+init();
+
+async function init(){
+  applyTheme();
+  bindTabs();
+  bindInputForm();
+  bindListTab();
+  bindSettingsTab();
+  bindStatsTab();
+  await loadConfig();
+  await refreshAll();
+  registerSW();
+}
+
+async function loadConfig(){
+  try{
+    var res = await fetch('config.json', {cache:'no-store'});
+    var cfg = await res.json();
+    CONFIG.API_URL = cfg.API_URL || '';
+    CONFIG.GOOGLE_MAPS_API_KEY = cfg.GOOGLE_MAPS_API_KEY || '';
+  }catch(e){
+    console.warn('config.json 로드 실패', e);
+  }
+}
+
+function apiUrlOk(){
+  return CONFIG.API_URL && CONFIG.API_URL.indexOf('http') === 0;
+}
+
+async function apiGet(action, params){
+  if(!apiUrlOk()) throw new Error('API_URL이 설정되지 않았습니다 (config.json 확인)');
+  var url = CONFIG.API_URL + '?action=' + encodeURIComponent(action);
+  for(var k in (params||{})) url += '&' + k + '=' + encodeURIComponent(params[k]);
+  var res = await fetch(url);
+  var data = await res.json();
+  if(!data.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+
+async function apiPost(action, payload){
+  if(!apiUrlOk()) throw new Error('API_URL이 설정되지 않았습니다 (config.json 확인)');
+  var body = Object.assign({action: action}, payload || {});
+  var res = await fetch(CONFIG.API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, // Apps Script CORS 이슈 회피용
+    body: JSON.stringify(body)
+  });
+  var data = await res.json();
+  if(!data.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+
+async function refreshAll(){
+  try{
+    var pingRes = await apiGet('ping');
+    setApiStatus(true, pingRes.version);
+  }catch(e){
+    setApiStatus(false, null);
+  }
+  try{
+    var vres = await apiGet('getVisits');
+    STATE.visits = vres.visits || [];
+  }catch(e){ console.warn(e); }
+  try{
+    var gres = await apiGet('getGroups');
+    STATE.groups = gres.groups || [];
+  }catch(e){ console.warn(e); }
+  renderList();
+  renderGallery();
+  renderStats();
+  renderGroupDetail();
+  if(STATE.mapLoaded) renderMapMarkers();
+}
+
+function setApiStatus(ok, remoteVersion){
+  var el = document.getElementById('s_apiStatus');
+  if(!apiUrlOk()){ el.textContent = 'config.json에 API_URL 미설정'; return; }
+  el.textContent = ok ? ('정상 연결됨 (서버 v' + remoteVersion + ')') : '연결 실패 — API_URL 확인 필요';
+  document.getElementById('s_version').textContent = 'v' + APP_VERSION;
+}
+
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+
+// ---------------------------------------------------------------------
+// 탭 전환
+// ---------------------------------------------------------------------
+function bindTabs(){
+  var btns = document.querySelectorAll('nav.tabbar button');
+  btns.forEach(function(b){
+    b.addEventListener('click', function(){
+      btns.forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');
+      document.querySelectorAll('section.tab').forEach(function(s){s.classList.remove('active');});
+      var tabId = b.getAttribute('data-tab');
+      document.getElementById(tabId).classList.add('active');
+      if(tabId === 'tab-map') ensureMap();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------
+// 입력 탭
+// ---------------------------------------------------------------------
+function bindInputForm(){
+  var catWrap = document.getElementById('f_cat');
+  CATEGORIES.forEach(function(c){
+    var chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = c;
+    chip.addEventListener('click', function(){
+      chip.classList.toggle('selected');
+      var idx = STATE.selectedCats.indexOf(c);
+      if(chip.classList.contains('selected')){ if(idx===-1) STATE.selectedCats.push(c); }
+      else { if(idx>-1) STATE.selectedCats.splice(idx,1); }
+    });
+    catWrap.appendChild(chip);
+  });
+
+  document.querySelectorAll('#f_rating .star').forEach(function(s){
+    s.addEventListener('click', function(){
+      STATE.rating = parseInt(s.getAttribute('data-v'),10);
+      renderStars();
+    });
+  });
+
+  bindYnToggle('f_revisit', function(v){ STATE.revisit = v; });
+  bindYnToggle('f_parking', function(v){ STATE.parking = v; });
+
+  document.getElementById('f_photo_camera').addEventListener('change', function(e){ handlePhotoFiles(e.target.files); e.target.value=''; });
+  document.getElementById('f_photo_gallery').addEventListener('change', function(e){ handlePhotoFiles(e.target.files); e.target.value=''; });
+
+  var today = new Date();
+  document.getElementById('f_date').value = today.toISOString().slice(0,10);
+  document.getElementById('f_time').value = today.toTimeString().slice(0,5);
+
+  document.getElementById('btnSubmitVisit').addEventListener('click', submitVisit);
+}
+
+function bindYnToggle(id, onChange){
+  var wrap = document.getElementById(id);
+  wrap.querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var already = b.classList.contains('on');
+      wrap.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+      if(!already){ b.classList.add('on'); onChange(b.getAttribute('data-v')); }
+      else { onChange(''); }
+    });
+  });
+}
+
+function renderStars(){
+  document.querySelectorAll('#f_rating .star').forEach(function(s){
+    var v = parseInt(s.getAttribute('data-v'),10);
+    s.classList.toggle('filled', v <= STATE.rating);
+  });
+}
+
+async function handlePhotoFiles(fileList){
+  var files = Array.from(fileList||[]);
+  for(var i=0;i<files.length;i++){
+    var f = files[i];
+    toast('사진 업로드 중…');
+    try{
+      var b64 = await fileToBase64(f);
+      var res = await apiPost('uploadPhoto', {filename:f.name, mimeType:f.type, data:b64});
+      STATE.photos.push(res.photo);
+      renderPhotoPreview();
+    }catch(e){
+      toast('사진 업로드 실패: ' + e.message);
+    }
+  }
+}
+
+function fileToBase64(file){
+  return new Promise(function(resolve,reject){
+    var reader = new FileReader();
+    reader.onload = function(){ resolve(reader.result.split(',')[1]); };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoPreview(){
+  var wrap = document.getElementById('f_photo_preview');
+  wrap.innerHTML = '';
+  STATE.photos.forEach(function(p, idx){
+    var div = document.createElement('div');
+    div.className = 'photo-thumb';
+    div.innerHTML = '<img src="'+p.thumbUrl+'"><button class="rm">✕</button>';
+    div.querySelector('.rm').addEventListener('click', function(){
+      STATE.photos.splice(idx,1);
+      renderPhotoPreview();
+    });
+    wrap.appendChild(div);
+  });
+}
+
+// 주소 → 위도/경도 자동 지오코딩 (구글맵 API 키가 설정된 경우에만 동작, 실패해도 저장은 계속 진행)
+async function geocodeAddress(address){
+  if(!address || !CONFIG.GOOGLE_MAPS_API_KEY) return null;
+  try{
+    var url = 'https://maps.googleapis.com/maps/api/geocode/json?address='+encodeURIComponent(address)+'&key='+encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY);
+    var res = await fetch(url);
+    var data = await res.json();
+    if(data.status==='OK' && data.results && data.results[0]){
+      var loc = data.results[0].geometry.location;
+      return {lat: loc.lat, lng: loc.lng};
+    }
+  }catch(e){ console.warn('지오코딩 실패', e); }
+  return null;
+}
+
+async function submitVisit(){
+  var name = document.getElementById('f_name').value.trim();
+  if(!name){ toast('가게명을 입력해주세요'); return; }
+  if(!STATE.myName){ toast('설정 탭에서 내 이름을 먼저 저장해주세요'); return; }
+
+  var loc = document.getElementById('f_loc').value.trim();
+  var geo = await geocodeAddress(loc);
+
+  var visit = {
+    방문일: document.getElementById('f_date').value,
+    방문시간: document.getElementById('f_time').value,
+    가게명: name,
+    위치: loc,
+    위도: geo ? geo.lat : '',
+    경도: geo ? geo.lng : '',
+    카테고리: STATE.selectedCats.slice(),
+    메뉴: document.getElementById('f_menu').value.trim(),
+    평점: STATE.rating,
+    지출금액: document.getElementById('f_price').value || '',
+    재방문의사: STATE.revisit,
+    영업시간: document.getElementById('f_hours').value.trim(),
+    주차가능여부: STATE.parking,
+    웨이팅시간: document.getElementById('f_waiting').value.trim(),
+    동행자: document.getElementById('f_companions').value.trim(),
+    사진: STATE.photos.slice(),
+    등록자: STATE.myName,
+    groupId: STATE.groupMode ? STATE.myGroupId : '',
+    메모: document.getElementById('f_memo').value.trim()
+  };
+
+  try{
+    await apiPost('addVisit', {visit: visit});
+    toast('저장되었습니다 ✅');
+    resetInputForm();
+    await refreshAll();
+  }catch(e){
+    toast('저장 실패: ' + e.message);
+  }
+}
+
+function resetInputForm(){
+  document.getElementById('f_name').value = '';
+  document.getElementById('f_loc').value = '';
+  document.getElementById('f_menu').value = '';
+  document.getElementById('f_price').value = '';
+  document.getElementById('f_hours').value = '';
+  document.getElementById('f_waiting').value = '';
+  document.getElementById('f_companions').value = '';
+  document.getElementById('f_memo').value = '';
+  STATE.selectedCats = [];
+  STATE.rating = 0;
+  STATE.revisit = '';
+  STATE.parking = '';
+  STATE.photos = [];
+  document.querySelectorAll('#f_cat .chip').forEach(function(c){c.classList.remove('selected');});
+  document.querySelectorAll('#f_revisit button, #f_parking button').forEach(function(b){b.classList.remove('on');});
+  renderStars();
+  renderPhotoPreview();
+}
+
+// ---------------------------------------------------------------------
+// 목록 탭
+// ---------------------------------------------------------------------
+function bindListTab(){
+  document.getElementById('listSearch').addEventListener('input', renderList);
+  document.getElementById('btnSelectMode').addEventListener('click', function(){
+    STATE.selectMode = !STATE.selectMode;
+    STATE.selectedIds = {};
+    document.getElementById('selectToolbar').hidden = !STATE.selectMode;
+    document.getElementById('btnSelectMode').textContent = STATE.selectMode ? '취소' : '선택';
+    renderList();
+  });
+  document.getElementById('btnMakeDraft').addEventListener('click', openBlogDraftModal);
+}
+
+function visibleVisits(){
+  var q = (document.getElementById('listSearch').value||'').trim().toLowerCase();
+  var list = STATE.visits.slice();
+  if(STATE.groupMode && STATE.myGroupId){
+    list = list.filter(function(v){ return v.groupId === STATE.myGroupId || !v.groupId; });
+  } else if(!STATE.groupMode){
+    list = list.filter(function(v){ return v.등록자 === STATE.myName; });
+  }
+  if(q){
+    list = list.filter(function(v){
+      return (v.가게명||'').toLowerCase().indexOf(q)>-1 ||
+             (v.메뉴||'').toLowerCase().indexOf(q)>-1 ||
+             (v.위치||'').toLowerCase().indexOf(q)>-1;
+    });
+  }
+  list.sort(function(a,b){ return (b.방문일+b.방문시간).localeCompare(a.방문일+a.방문시간); });
+  return list;
+}
+
+function renderList(){
+  var list = visibleVisits();
+  var wrap = document.getElementById('listContainer');
+  wrap.innerHTML = '';
+  if(list.length===0){
+    wrap.innerHTML = '<div class="empty">아직 방문 기록이 없습니다.<br>입력 탭에서 첫 기록을 남겨보세요 🍽️</div>';
+    updateSelectCount();
+    return;
+  }
+  list.forEach(function(v){
+    var card = document.createElement('div');
+    card.className = 'card visit-card';
+    var photo = (v.사진 && v.사진[0]) ? v.사진[0].thumbUrl : null;
+    var checkHtml = STATE.selectMode ? '<input type="checkbox" class="check" '+(STATE.selectedIds[v.id]?'checked':'')+'>' : '';
+    card.innerHTML =
+      '<div class="thumb">'+(photo? '<img src="'+photo+'">' : '🍽️')+'</div>'+
+      '<div class="body">'+
+        '<div class="row1"><span class="name">'+escapeHtml(v.가게명)+'</span>'+checkHtml+'</div>'+
+        '<div class="meta">'+escapeHtml(v.방문일||'')+' · '+escapeHtml(v.위치||'')+' · '+escapeHtml(v.등록자||'')+'</div>'+
+        '<div class="meta"><span class="rating">'+'★'.repeat(v.평점||0)+'</span> '+(v.지출금액?Number(v.지출금액).toLocaleString()+'원':'')+'</div>'+
+        (v.카테고리 ? '<div style="margin-top:4px;">'+String(v.카테고리).split(',').filter(Boolean).map(function(c){return '<span class="badge">'+escapeHtml(c)+'</span>';}).join('')+'</div>' : '')+
+      '</div>';
+    if(STATE.selectMode){
+      card.addEventListener('click', function(){
+        STATE.selectedIds[v.id] = !STATE.selectedIds[v.id];
+        renderList();
+      });
+    } else {
+      card.addEventListener('click', function(){ openVisitDetail(v); });
+    }
+    wrap.appendChild(card);
+  });
+  updateSelectCount();
+}
+
+function updateSelectCount(){
+  var n = Object.keys(STATE.selectedIds).filter(function(k){return STATE.selectedIds[k];}).length;
+  document.getElementById('selectCount').textContent = n + '개 선택';
+}
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function openVisitDetail(v){
+  var canEdit = editableCheck(v);
+  var photosHtml = (v.사진||[]).map(function(p){return '<img src="'+p.thumbUrl+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin:2px;">';}).join('');
+  var html =
+    '<button class="close-x" data-close>✕</button>'+
+    '<h3>'+escapeHtml(v.가게명)+'</h3>'+
+    '<p class="meta" style="color:var(--muted);">'+escapeHtml(v.방문일)+' '+escapeHtml(v.방문시간||'')+' · 등록자: '+escapeHtml(v.등록자||'')+'</p>'+
+    '<p>📍 '+escapeHtml(v.위치||'-')+'</p>'+
+    '<p>🍴 '+escapeHtml(v.메뉴||'-')+' · '+'★'.repeat(v.평점||0)+'</p>'+
+    '<p>💰 '+(v.지출금액?Number(v.지출금액).toLocaleString()+'원':'-')+' · 재방문의사: '+(v.재방문의사==='Y'?'👍':v.재방문의사==='N'?'👎':'-')+'</p>'+
+    '<p>🕐 '+escapeHtml(v.영업시간||'-')+' · 🚗 주차 '+(v.주차가능여부==='Y'?'가능':v.주차가능여부==='N'?'불가':'-')+' · ⏳ 웨이팅 '+escapeHtml(v.웨이팅시간||'-')+'</p>'+
+    (v.동행자?('<p>👥 '+escapeHtml(v.동행자)+'</p>'):'')+
+    (v.메모?('<p style="white-space:pre-wrap;">📝 '+escapeHtml(v.메모)+'</p>'):'')+
+    (photosHtml? ('<div>'+photosHtml+'</div>') : '')+
+    (canEdit ? '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn secondary small" data-del>삭제</button></div>' : '<p class="meta" style="margin-top:14px;">🔒 등록 7일 경과로 등록자만 수정/삭제할 수 있습니다.</p>');
+  var overlay = openModal(html, true);
+  overlay.querySelector('[data-del]') && overlay.querySelector('[data-del]').addEventListener('click', async function(){
+    if(!confirm('이 방문 기록을 삭제할까요?')) return;
+    try{
+      await apiPost('deleteVisit', {id:v.id, requester: STATE.myName});
+      toast('삭제되었습니다');
+      closeModal();
+      await refreshAll();
+    }catch(e){ toast('삭제 실패: ' + e.message); }
+  });
+}
+
+function editableCheck(v){
+  if(!v.groupId) return true;
+  if(v.등록자 === STATE.myName) return true;
+  if(!v.생성일시) return true;
+  var days = (Date.now() - new Date(v.생성일시).getTime())/(1000*60*60*24);
+  return days <= 7;
+}
+
+// 블로그 초안 생성 (클라이언트에서 텍스트 템플릿으로 생성)
+function openBlogDraftModal(){
+  var ids = Object.keys(STATE.selectedIds).filter(function(k){return STATE.selectedIds[k];});
+  if(ids.length===0){ toast('목록에서 기록을 먼저 선택해주세요'); return; }
+  var picked = STATE.visits.filter(function(v){ return ids.indexOf(v.id)>-1; });
+  picked.sort(function(a,b){ return (a.방문일+a.방문시간).localeCompare(b.방문일+b.방문시간); });
+  var draft = picked.length===1 ? buildSingleDraft(picked[0]) : buildMultiDraft(picked);
+  var html =
+    '<button class="close-x" data-close>✕</button>'+
+    '<h3>블로그 초안</h3>'+
+    '<textarea class="draft" id="draftText" readonly>'+draft+'</textarea>'+
+    '<button class="btn" id="btnCopyDraft" style="margin-top:10px;">📋 복사하기</button>';
+  var overlay = openModal(html, true);
+  overlay.querySelector('#btnCopyDraft').addEventListener('click', function(){
+    var ta = overlay.querySelector('#draftText');
+    ta.select();
+    try{ document.execCommand('copy'); toast('복사되었습니다 ✅'); }
+    catch(e){ navigator.clipboard && navigator.clipboard.writeText(ta.value); toast('복사되었습니다 ✅'); }
+  });
+}
+
+function buildSingleDraft(v){
+  var region = (v.위치||'').split(' ').slice(-1)[0] || '';
+  var title = (region? region+' 맛집 ' : '') + v.가게명 + (v.메뉴? ', '+v.메뉴.split(',')[0]+' 후기' : ' 후기');
+  var lines = [];
+  lines.push('# ' + title);
+  lines.push('');
+  lines.push(v.방문일 + (v.동행자? (' · ' + v.동행자 + '와 함께') : '') + ' 다녀온 ' + v.가게명 + '입니다.');
+  lines.push('');
+  lines.push('## 메뉴 · 가격');
+  lines.push('- 메뉴: ' + (v.메뉴||'-'));
+  lines.push('- 가격: ' + (v.지출금액? Number(v.지출금액).toLocaleString()+'원' : '-'));
+  lines.push('');
+  lines.push('## 맛 평 & 총평');
+  lines.push('평점: ' + '★'.repeat(v.평점||0) + (v.평점?'':'평점 없음'));
+  lines.push(v.메모 || '전체적으로 만족스러운 방문이었습니다.');
+  lines.push('');
+  lines.push('## 이용 정보');
+  lines.push('- 영업시간: ' + (v.영업시간||'-'));
+  lines.push('- 주차: ' + (v.주차가능여부==='Y'?'가능':v.주차가능여부==='N'?'불가':'-'));
+  lines.push('- 웨이팅: ' + (v.웨이팅시간||'없음'));
+  lines.push('');
+  var tags = [];
+  if(region) tags.push('#'+region.replace(/[^가-힣a-zA-Z0-9]/g,''));
+  String(v.카테고리||'').split(',').filter(Boolean).forEach(function(c){ tags.push('#'+c.replace(/[·\s]/g,'')); });
+  tags.push('#'+v.가게명.replace(/\s/g,''));
+  lines.push(tags.join(' '));
+  return lines.join('\n');
+}
+
+function buildMultiDraft(list){
+  var regions = {};
+  list.forEach(function(v){ var r=(v.위치||'').split(' ').slice(-1)[0]; if(r) regions[r]=(regions[r]||0)+1; });
+  var topRegion = Object.keys(regions).sort(function(a,b){return regions[b]-regions[a];})[0] || '';
+  var lines = [];
+  lines.push('# '+(topRegion? topRegion+' ' : '')+'맛집 '+list.length+'곳 모아보기');
+  lines.push('');
+  lines.push('최근 다녀온 맛집 '+list.length+'곳을 모아 정리했습니다.');
+  lines.push('');
+  list.forEach(function(v, i){
+    lines.push('## '+(i+1)+'. '+v.가게명);
+    lines.push('- 방문일: '+v.방문일);
+    lines.push('- 위치: '+(v.위치||'-'));
+    lines.push('- 메뉴: '+(v.메뉴||'-'));
+    lines.push('- 평점: '+'★'.repeat(v.평점||0));
+    lines.push('- 가격: '+(v.지출금액? Number(v.지출금액).toLocaleString()+'원' : '-'));
+    if(v.메모) lines.push('- 한줄평: '+v.메모);
+    lines.push('');
+  });
+  var tagSet = {};
+  list.forEach(function(v){
+    String(v.카테고리||'').split(',').filter(Boolean).forEach(function(c){ tagSet['#'+c.replace(/[·\s]/g,'')] = true; });
+  });
+  if(topRegion) tagSet['#'+topRegion.replace(/[^가-힣a-zA-Z0-9]/g,'')] = true;
+  lines.push(Object.keys(tagSet).join(' '));
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------
+// 모달 / 라이트박스
+// ---------------------------------------------------------------------
+function openModal(innerHtml, sheetStyle){
+  closeModal();
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay' + (sheetStyle? '' : ' center');
+  overlay.id = 'activeModal';
+  overlay.innerHTML = '<div class="modal-sheet">'+innerHtml+'</div>';
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) closeModal(); });
+  overlay.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', closeModal); });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+function closeModal(){
+  var el = document.getElementById('activeModal');
+  if(el) el.remove();
+}
+function openLightbox(url){
+  var box = document.createElement('div');
+  box.className = 'lightbox';
+  box.innerHTML = '<img src="'+url+'">';
+  box.addEventListener('click', function(){ box.remove(); });
+  document.body.appendChild(box);
+}
+
+// ---------------------------------------------------------------------
+// 지도 탭
+// ---------------------------------------------------------------------
+function ensureMap(){
+  if(STATE.mapLoaded) return;
+  if(!CONFIG.GOOGLE_MAPS_API_KEY){
+    document.getElementById('mapHint').hidden = false;
+    return;
+  }
+  var s = document.createElement('script');
+  s.src = 'https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY)+'&callback=__initMtMap';
+  s.async = true;
+  window.__initMtMap = function(){
+    STATE.mapLoaded = true;
+    window.__mtMap = new google.maps.Map(document.getElementById('mapView'), {
+      center: {lat:37.5665, lng:126.9780}, zoom:11
+    });
+    renderMapMarkers();
+  };
+  document.head.appendChild(s);
+}
+
+function renderMapMarkers(){
+  if(!window.__mtMap) return;
+  STATE.markers.forEach(function(m){ m.setMap(null); });
+  STATE.markers = [];
+  var bounds = new google.maps.LatLngBounds();
+  var any = false;
+  visibleVisits().forEach(function(v){
+    if(!v.위도 || !v.경도) return;
+    var pos = {lat:Number(v.위도), lng:Number(v.경도)};
+    var marker = new google.maps.Marker({position:pos, map:window.__mtMap, title:v.가게명});
+    var info = new google.maps.InfoWindow({content:
+      '<div style="font-family:sans-serif;"><b>'+escapeHtml(v.가게명)+'</b><br>'+'★'.repeat(v.평점||0)+
+      (v.사진&&v.사진[0]? ('<br><img src="'+v.사진[0].thumbUrl+'" style="width:120px;border-radius:6px;margin-top:4px;">') : '')+'</div>'
+    });
+    marker.addListener('click', function(){ info.open(window.__mtMap, marker); });
+    STATE.markers.push(marker);
+    bounds.extend(pos);
+    any = true;
+  });
+  if(any) window.__mtMap.fitBounds(bounds);
+}
+
+// ---------------------------------------------------------------------
+// 사진첩 탭
+// ---------------------------------------------------------------------
+function renderGallery(){
+  var wrap = document.getElementById('galleryContainer');
+  wrap.innerHTML = '';
+  var byStore = {};
+  visibleVisits().forEach(function(v){
+    if(!v.사진 || v.사진.length===0) return;
+    byStore[v.가게명] = byStore[v.가게명] || [];
+    v.사진.forEach(function(p){ byStore[v.가게명].push(p); });
+  });
+  var names = Object.keys(byStore);
+  if(names.length===0){ wrap.innerHTML = '<div class="empty">아직 등록된 사진이 없습니다.</div>'; return; }
+  names.forEach(function(name){
+    var group = document.createElement('div');
+    group.className = 'gallery-group';
+    var grid = byStore[name].map(function(p){ return '<img src="'+p.thumbUrl+'" data-full="'+p.url+'">'; }).join('');
+    group.innerHTML = '<h3>'+escapeHtml(name)+'</h3><div class="gallery-grid">'+grid+'</div>';
+    group.querySelectorAll('img').forEach(function(img){
+      img.addEventListener('click', function(){ openLightbox(img.getAttribute('data-full')); });
+    });
+    wrap.appendChild(group);
+  });
+}
+
+// ---------------------------------------------------------------------
+// 통계 탭
+// ---------------------------------------------------------------------
+function bindStatsTab(){
+  document.querySelectorAll('#statPeriod button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#statPeriod button').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');
+      renderStats();
+    });
+  });
+}
+
+function renderStats(){
+  var period = document.querySelector('#statPeriod button.active').getAttribute('data-v');
+  var now = new Date();
+  var list = visibleVisits().filter(function(v){
+    if(!v.방문일) return false;
+    var d = new Date(v.방문일);
+    if(period==='year') return d.getFullYear()===now.getFullYear();
+    if(period==='month') return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+    return d.toDateString()===now.toDateString();
+  });
+  var count = list.length;
+  var totalSpend = list.reduce(function(s,v){ return s+(Number(v.지출금액)||0); },0);
+  var avgRating = count? (list.reduce(function(s,v){return s+(Number(v.평점)||0);},0)/count) : 0;
+  document.getElementById('statVisitCount').textContent = count;
+  document.getElementById('statTotalSpend').textContent = totalSpend.toLocaleString()+'원';
+  document.getElementById('statAvgRating').textContent = avgRating.toFixed(1);
+  document.getElementById('statAvgSpend').textContent = (count? Math.round(totalSpend/count):0).toLocaleString()+'원';
+
+  var catSpend = {};
+  list.forEach(function(v){
+    String(v.카테고리||'').split(',').filter(Boolean).forEach(function(c){
+      catSpend[c] = (catSpend[c]||0) + (Number(v.지출금액)||0);
+    });
+  });
+  var maxVal = Math.max.apply(null, Object.values(catSpend).concat([1]));
+  var wrap = document.getElementById('statCategoryBars');
+  var keys = Object.keys(catSpend).sort(function(a,b){return catSpend[b]-catSpend[a];});
+  wrap.innerHTML = keys.length? keys.map(function(c){
+    var pct = Math.round(catSpend[c]/maxVal*100);
+    return '<div class="bar-row"><span class="name">'+escapeHtml(c)+'</span><span class="bar-bg"><span class="bar-fill" style="width:'+pct+'%;"></span></span><span class="val">'+catSpend[c].toLocaleString()+'원</span></div>';
+  }).join('') : '<div class="empty">데이터가 없습니다.</div>';
+}
+
+// ---------------------------------------------------------------------
+// 설정 탭
+// ---------------------------------------------------------------------
+function bindSettingsTab(){
+  document.getElementById('s_myname').value = STATE.myName;
+  document.getElementById('btnSaveName').addEventListener('click', function(){
+    var v = document.getElementById('s_myname').value.trim();
+    if(!v){ toast('이름을 입력해주세요'); return; }
+    STATE.myName = v;
+    localStorage.setItem('mt_myname', v);
+    document.getElementById('whoTag').textContent = v;
+    toast('저장되었습니다');
+    refreshAll();
+  });
+  if(STATE.myName) document.getElementById('whoTag').textContent = STATE.myName;
+
+  var gm = document.getElementById('s_groupMode');
+  gm.querySelector('[data-v="'+(STATE.groupMode?'on':'off')+'"]').classList.add('on');
+  gm.querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click', function(){
+      gm.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+      STATE.groupMode = b.getAttribute('data-v')==='on';
+      localStorage.setItem('mt_groupmode', b.getAttribute('data-v'));
+      renderGroupDetail();
+      refreshAll();
+    });
+  });
+
+  var themeSel = document.getElementById('s_theme');
+  themeSel.value = STATE.theme;
+  themeSel.addEventListener('change', function(){
+    STATE.theme = themeSel.value;
+    localStorage.setItem('mt_theme', STATE.theme);
+    applyTheme();
+  });
+
+  document.getElementById('btnFixSheet').addEventListener('click', async function(){
+    try{ await apiPost('ensureHeaders', {}); toast('시트 컬럼을 점검했습니다 ✅'); }
+    catch(e){ toast('점검 실패: ' + e.message); }
+  });
+}
+
+function renderGroupDetail(){
+  var wrap = document.getElementById('groupDetail');
+  if(!STATE.groupMode){ wrap.innerHTML = ''; return; }
+  var myGroup = STATE.groups.find(function(g){ return g.groupId === STATE.myGroupId; });
+  var html = '';
+  if(myGroup){
+    html += '<div style="margin-top:10px;"><div class="lbl" style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">'+escapeHtml(myGroup.그룹명)+' 구성원</div>';
+    html += myGroup.구성원.map(function(m){ return '<span class="member-tag">'+escapeHtml(m)+'</span>'; }).join('');
+    html += '<div style="margin-top:8px;display:flex;gap:6px;"><input type="text" id="newMemberInput" placeholder="추가할 이름" style="flex:1;"><button class="btn small secondary" id="btnAddMember">추가</button></div></div>';
+  } else {
+    html += '<div style="margin-top:10px;">'+
+      '<select id="groupSelect" style="margin-bottom:8px;"><option value="">-- 기존 그룹 선택 --</option>'+
+      STATE.groups.map(function(g){return '<option value="'+g.groupId+'">'+escapeHtml(g.그룹명)+'</option>';}).join('')+
+      '</select>'+
+      '<button class="btn small secondary" id="btnJoinGroup" style="margin-bottom:10px;">선택한 그룹으로 참여</button>'+
+      '<div style="display:flex;gap:6px;"><input type="text" id="newGroupName" placeholder="새 그룹명"><button class="btn small" id="btnNewGroup">새 그룹 만들기</button></div>'+
+      '</div>';
+  }
+  wrap.innerHTML = html;
+
+  if(myGroup){
+    var addBtn = document.getElementById('btnAddMember');
+    addBtn && addBtn.addEventListener('click', async function(){
+      var name = document.getElementById('newMemberInput').value.trim();
+      if(!name) return;
+      var members = myGroup.구성원.concat([name]);
+      try{
+        await apiPost('updateGroupMembers', {groupId: myGroup.groupId, members: members});
+        toast('구성원을 추가했습니다');
+        await refreshAll();
+      }catch(e){ toast('실패: ' + e.message); }
+    });
+  } else {
+    var joinBtn = document.getElementById('btnJoinGroup');
+    joinBtn && joinBtn.addEventListener('click', function(){
+      var gid = document.getElementById('groupSelect').value;
+      if(!gid){ toast('그룹을 선택해주세요'); return; }
+      STATE.myGroupId = gid;
+      localStorage.setItem('mt_groupid', gid);
+      renderGroupDetail();
+      refreshAll();
+    });
+    var newBtn = document.getElementById('btnNewGroup');
+    newBtn && newBtn.addEventListener('click', async function(){
+      var name = document.getElementById('newGroupName').value.trim();
+      if(!name){ toast('그룹명을 입력해주세요'); return; }
+      try{
+        var res = await apiPost('addGroup', {name:name, members: STATE.myName? [STATE.myName] : []});
+        STATE.myGroupId = res.group.groupId;
+        localStorage.setItem('mt_groupid', STATE.myGroupId);
+        toast('그룹이 생성되었습니다');
+        await refreshAll();
+      }catch(e){ toast('실패: ' + e.message); }
+    });
+  }
+}
+
+function applyTheme(){
+  if(STATE.theme==='system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', STATE.theme);
+}
+
+// ---------------------------------------------------------------------
+// Service worker
+// ---------------------------------------------------------------------
+function registerSW(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('SW 등록 실패', e); });
+  }
+}
+</script>
+</body>
+</html>
