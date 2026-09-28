@@ -117,7 +117,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.0</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.1</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -244,6 +244,8 @@
       <div class="settings-row"><div class="lbl">API 연결 상태</div><div class="sub" id="s_apiStatus">확인 중…</div></div>
       <div class="settings-row"><div class="lbl">앱 버전</div><div class="sub" id="s_version">-</div></div>
       <button class="btn secondary small" id="btnFixSheet" style="margin-top:10px;">예전 기록 정렬 점검하기</button>
+      <button class="btn secondary small" id="btnBackfillGeo" style="margin-top:8px;">지도에 안 나오는 위치 좌표 보정하기</button>
+      <div class="sub" id="s_geoStatus" style="margin-top:6px;"></div>
     </div>
   </section>
 
@@ -264,7 +266,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.0.1';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -492,16 +494,41 @@ function renderPhotoPreview(){
   });
 }
 
+// 구글맵 JS 스크립트를 한 번만 로드 (지도 탭 진입, 지오코딩 등 여러 곳에서 공유해서 사용)
+// ※ Geocoding REST API(fetch)는 브라우저에서 CORS로 차단되므로 반드시 이 JS 라이브러리의
+//   google.maps.Geocoder를 사용해야 한다.
+var _mapsScriptPromise = null;
+function loadMapsScript(){
+  if(!CONFIG.GOOGLE_MAPS_API_KEY) return Promise.reject(new Error('구글맵 API 키가 설정되지 않았습니다'));
+  if(_mapsScriptPromise) return _mapsScriptPromise;
+  _mapsScriptPromise = new Promise(function(resolve, reject){
+    if(window.google && window.google.maps){ resolve(); return; }
+    window.__onMtMapsLoaded = function(){ resolve(); };
+    var s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY)+'&callback=__onMtMapsLoaded';
+    s.async = true;
+    s.onerror = function(){ reject(new Error('구글맵 스크립트 로드 실패')); };
+    document.head.appendChild(s);
+  });
+  return _mapsScriptPromise;
+}
+
+var _geocoder = null;
 // 주소 → 위도/경도 자동 지오코딩 (구글맵 API 키가 설정된 경우에만 동작, 실패해도 저장은 계속 진행)
 async function geocodeAddress(address){
   if(!address || !CONFIG.GOOGLE_MAPS_API_KEY) return null;
   try{
-    var url = 'https://maps.googleapis.com/maps/api/geocode/json?address='+encodeURIComponent(address)+'&key='+encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY);
-    var res = await fetch(url);
-    var data = await res.json();
-    if(data.status==='OK' && data.results && data.results[0]){
-      var loc = data.results[0].geometry.location;
-      return {lat: loc.lat, lng: loc.lng};
+    await loadMapsScript();
+    if(!_geocoder) _geocoder = new google.maps.Geocoder();
+    var result = await new Promise(function(resolve){
+      _geocoder.geocode({address: address}, function(results, status){
+        if(status === 'OK' && results && results[0]) resolve(results[0]);
+        else resolve(null);
+      });
+    });
+    if(result){
+      var loc = result.geometry.location;
+      return {lat: loc.lat(), lng: loc.lng()};
     }
   }catch(e){ console.warn('지오코딩 실패', e); }
   return null;
@@ -795,17 +822,16 @@ function ensureMap(){
     document.getElementById('mapHint').hidden = false;
     return;
   }
-  var s = document.createElement('script');
-  s.src = 'https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY)+'&callback=__initMtMap';
-  s.async = true;
-  window.__initMtMap = function(){
+  loadMapsScript().then(function(){
     STATE.mapLoaded = true;
     window.__mtMap = new google.maps.Map(document.getElementById('mapView'), {
       center: {lat:37.5665, lng:126.9780}, zoom:11
     });
     renderMapMarkers();
-  };
-  document.head.appendChild(s);
+  }).catch(function(e){
+    document.getElementById('mapHint').hidden = false;
+    console.warn('지도 로드 실패', e);
+  });
 }
 
 function renderMapMarkers(){
@@ -943,6 +969,30 @@ function bindSettingsTab(){
     try{ await apiPost('ensureHeaders', {}); toast('시트 컬럼을 점검했습니다 ✅'); }
     catch(e){ toast('점검 실패: ' + e.message); }
   });
+
+  document.getElementById('btnBackfillGeo').addEventListener('click', backfillGeoCoordinates);
+}
+
+// 위치(주소)는 있지만 위도/경도가 비어있는 기존 기록들을 순회하며 지오코딩 후 서버에 반영
+async function backfillGeoCoordinates(){
+  if(!CONFIG.GOOGLE_MAPS_API_KEY){ toast('config.json에 구글맵 API 키를 먼저 설정해주세요'); return; }
+  var targets = STATE.visits.filter(function(v){ return v.위치 && (!v.위도 || !v.경도); });
+  var statusEl = document.getElementById('s_geoStatus');
+  if(targets.length===0){ statusEl.textContent = '보정할 기록이 없습니다 (모두 좌표가 있음)'; return; }
+  var ok = 0, fail = 0;
+  for(var i=0;i<targets.length;i++){
+    var v = targets[i];
+    statusEl.textContent = '보정 중… ('+(i+1)+'/'+targets.length+') '+v.가게명;
+    try{
+      var geo = await geocodeAddress(v.위치);
+      if(!geo){ fail++; continue; }
+      await apiPost('updateVisit', {visit:{id:v.id, 위도:geo.lat, 경도:geo.lng}, requester: STATE.myName});
+      ok++;
+    }catch(e){ fail++; }
+    await new Promise(function(r){ setTimeout(r, 250); }); // 지오코딩 요청 속도 조절
+  }
+  statusEl.textContent = '완료: '+ok+'건 보정, '+fail+'건 실패';
+  await refreshAll();
 }
 
 function renderGroupDetail(){
