@@ -1,4 +1,4 @@
 {
-  "API_URL": "여기에_배포된_Apps_Script_웹앱_URL을_입력하세요",
-  "GOOGLE_MAPS_API_KEY": "여기에_구글맵_JavaScript_API_키를_입력하세요"
+  "API_URL": "https://script.google.com/macros/s/AKfycbwNusWyap5syZqppu9xxBpgF9gFKJjJrHwMvyhJJGXNxZuzcv3CuQh48kOCWeMOKIcYeg/exec",
+  "GOOGLE_MAPS_API_KEY": "AIzaSyCIbE62D3iZCs1u46uikXhg06O944WTeH4"
 }
