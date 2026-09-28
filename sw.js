@@ -1,5 +1,5 @@
 /* 맛집투어관리 앱 — 서비스워커 */
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.0.1';
 var CACHE_NAME = 'mtapp-cache-v' + APP_VERSION;
 
 // config.json은 캐시하지 않는다 (API URL을 항상 최신으로 가져오기 위함)
