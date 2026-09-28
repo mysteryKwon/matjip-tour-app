@@ -117,7 +117,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.1</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.2</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -266,7 +266,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.1';
+var APP_VERSION = '1.0.2';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -844,8 +844,12 @@ function renderMapMarkers(){
     if(!v.위도 || !v.경도) return;
     var pos = {lat:Number(v.위도), lng:Number(v.경도)};
     var marker = new google.maps.Marker({position:pos, map:window.__mtMap, title:v.가게명});
+    // 구글맵 InfoWindow는 항상 흰 배경 말풍선이라, 앱의 다크모드 글자색(var(--text))을 그대로 물려받으면
+    // 밝은 글씨가 흰 배경에 묻혀 안 보인다. 그래서 배경/글자색을 테마와 무관하게 직접 고정한다.
     var info = new google.maps.InfoWindow({content:
-      '<div style="font-family:sans-serif;"><b>'+escapeHtml(v.가게명)+'</b><br>'+'★'.repeat(v.평점||0)+
+      '<div style="font-family:sans-serif;color:#241f1c;background:#ffffff;padding:2px 4px;">'+
+      '<b style="color:#241f1c;">'+escapeHtml(v.가게명)+'</b><br>'+
+      '<span style="color:#ff7a45;">'+'★'.repeat(v.평점||0)+'</span>'+
       (v.사진&&v.사진[0]? ('<br><img src="'+v.사진[0].thumbUrl+'" style="width:120px;border-radius:6px;margin-top:4px;">') : '')+'</div>'
     });
     marker.addListener('click', function(){ info.open(window.__mtMap, marker); });
