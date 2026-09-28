@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ff7a45">
+<meta name="color-scheme" content="light dark">
 <title>맛집투어관리</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -13,15 +14,18 @@
     --bg:#f7f5f2; --card:#ffffff; --text:#241f1c; --muted:#8a8178;
     --border:#e8e2da; --accent:#ff7a45; --accent-dim:#ffe3d3;
     --danger:#e0503a; --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+    color-scheme: light;
   }
   [data-theme="dark"]{
     --bg:#181513; --card:#241f1c; --text:#f3ede6; --muted:#a89d90;
     --border:#39322c; --accent:#ff8a5c; --accent-dim:#4a2c1c; --danger:#ff6b52;
+    color-scheme: dark;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --bg:#181513; --card:#241f1c; --text:#f3ede6; --muted:#a89d90;
       --border:#39322c; --accent:#ff8a5c; --accent-dim:#4a2c1c; --danger:#ff6b52;
+      color-scheme: dark;
     }
   }
   *{box-sizing:border-box;}
@@ -117,7 +121,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.2</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.4</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -266,7 +270,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.2';
+var APP_VERSION = '1.0.4';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -386,15 +390,17 @@ function toast(msg){
 function bindTabs(){
   var btns = document.querySelectorAll('nav.tabbar button');
   btns.forEach(function(b){
-    b.addEventListener('click', function(){
-      btns.forEach(function(x){x.classList.remove('active');});
-      b.classList.add('active');
-      document.querySelectorAll('section.tab').forEach(function(s){s.classList.remove('active');});
-      var tabId = b.getAttribute('data-tab');
-      document.getElementById(tabId).classList.add('active');
-      if(tabId === 'tab-map') ensureMap();
-    });
+    b.addEventListener('click', function(){ switchToTab(b.getAttribute('data-tab')); });
   });
+}
+
+function switchToTab(tabId){
+  document.querySelectorAll('nav.tabbar button').forEach(function(x){
+    x.classList.toggle('active', x.getAttribute('data-tab') === tabId);
+  });
+  document.querySelectorAll('section.tab').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  if(tabId === 'tab-map') ensureMap();
 }
 
 // ---------------------------------------------------------------------
@@ -834,6 +840,53 @@ function ensureMap(){
   });
 }
 
+// 지도 팝업 클릭 시 → 목록 탭과 동일한 상세보기 모달을 띄운다 (지도에서도 바로 수정/삭제까지 접근)
+window.__openVisitFromMap = function(id){
+  var v = STATE.visits.find(function(x){ return x.id === id; });
+  if(v){ switchToTab('tab-map'); openVisitDetail(v); }
+};
+
+// 구글 지도 앱의 장소 카드 스타일(제목+열기버튼 / 주소 / 아이콘 정보줄)을 참고해서 팝업 구성.
+// InfoWindow는 항상 흰 배경 말풍선이고, 일부 브라우저의 "웹사이트 강제 다크 테마" 기능이 색을
+// 덮어쓰는 경우가 있어 모든 색을 라이트 고정값 + !important로 지정한다 (color-scheme:light).
+function buildMapCardHtml(v){
+  var rows = [];
+  if(v.카테고리){
+    var cats = String(v.카테고리).split(',').filter(Boolean);
+    if(cats.length) rows.push({icon:'🍴', text: cats.join(' · ')});
+  }
+  if(v.영업시간) rows.push({icon:'🕐', text: v.영업시간});
+  if(v.주차가능여부) rows.push({icon:'🚗', text: '주차 ' + (v.주차가능여부==='Y'?'가능':'불가')});
+  if(v.웨이팅시간) rows.push({icon:'⏳', text: '웨이팅 ' + v.웨이팅시간});
+  if(v.지출금액) rows.push({icon:'💰', text: Number(v.지출금액).toLocaleString()+'원'});
+
+  var rowsHtml = rows.map(function(r){
+    return '<div style="display:flex;align-items:center;gap:6px;color:#4a453f!important;font-size:12.5px;margin-top:5px;">'+
+      '<span style="flex-shrink:0;">'+r.icon+'</span><span>'+escapeHtml(r.text)+'</span></div>';
+  }).join('');
+
+  var photoHtml = (v.사진 && v.사진[0]) ?
+    '<img src="'+v.사진[0].thumbUrl+'" style="width:100%;height:96px;object-fit:cover;border-radius:8px;margin-top:8px;display:block;">' : '';
+
+  return (
+    '<div style="color-scheme:light;font-family:-apple-system,BlinkMacSystemFont,sans-serif;'+
+      'color:#241f1c!important;background:#ffffff!important;padding:12px;min-width:200px;max-width:230px;border-radius:12px;">'+
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'+
+        '<div style="font-weight:700;font-size:15px;color:#241f1c!important;line-height:1.3;">'+escapeHtml(v.가게명)+'</div>'+
+        '<button onclick="window.__openVisitFromMap(\''+v.id+'\')" title="상세보기" '+
+          'style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;'+
+          'background:#ffe3d3!important;color:#ff7a45!important;font-size:13px;line-height:1;cursor:pointer;'+
+          'display:flex;align-items:center;justify-content:center;padding:0;">↗</button>'+
+      '</div>'+
+      (v.위치 ? '<div style="font-size:12px;color:#8a8178!important;margin-top:2px;">'+escapeHtml(v.위치)+'</div>' : '')+
+      '<div style="color:#ff7a45!important;font-size:13px;margin-top:6px;">'+('★'.repeat(v.평점||0)||'')+
+        (v.등록자? ' <span style="color:#8a8178!important;font-size:11.5px;">· '+escapeHtml(v.등록자)+'</span>' : '')+'</div>'+
+      rowsHtml +
+      photoHtml +
+    '</div>'
+  );
+}
+
 function renderMapMarkers(){
   if(!window.__mtMap) return;
   STATE.markers.forEach(function(m){ m.setMap(null); });
@@ -844,14 +897,7 @@ function renderMapMarkers(){
     if(!v.위도 || !v.경도) return;
     var pos = {lat:Number(v.위도), lng:Number(v.경도)};
     var marker = new google.maps.Marker({position:pos, map:window.__mtMap, title:v.가게명});
-    // 구글맵 InfoWindow는 항상 흰 배경 말풍선이라, 앱의 다크모드 글자색(var(--text))을 그대로 물려받으면
-    // 밝은 글씨가 흰 배경에 묻혀 안 보인다. 그래서 배경/글자색을 테마와 무관하게 직접 고정한다.
-    var info = new google.maps.InfoWindow({content:
-      '<div style="font-family:sans-serif;color:#241f1c;background:#ffffff;padding:2px 4px;">'+
-      '<b style="color:#241f1c;">'+escapeHtml(v.가게명)+'</b><br>'+
-      '<span style="color:#ff7a45;">'+'★'.repeat(v.평점||0)+'</span>'+
-      (v.사진&&v.사진[0]? ('<br><img src="'+v.사진[0].thumbUrl+'" style="width:120px;border-radius:6px;margin-top:4px;">') : '')+'</div>'
-    });
+    var info = new google.maps.InfoWindow({content: buildMapCardHtml(v)});
     marker.addListener('click', function(){ info.open(window.__mtMap, marker); });
     STATE.markers.push(marker);
     bounds.extend(pos);
