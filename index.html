@@ -121,7 +121,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.5</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.6</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -271,7 +271,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.5';
+var APP_VERSION = '1.0.6';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -307,6 +307,13 @@ async function init(){
   bindListTab();
   bindSettingsTab();
   bindStatsTab();
+  restorePendingPhotos();
+  window.addEventListener('beforeunload', function(e){
+    if(STATE.photos.length > 0 && !STATE.editingId){
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
   await loadConfig();
   await refreshAll();
   registerSW();
@@ -474,12 +481,39 @@ async function handlePhotoFiles(fileList){
     try{
       var b64 = await fileToBase64(f);
       var res = await apiPost('uploadPhoto', {filename:f.name, mimeType:f.type, data:b64});
+      // 구글 드라이브 업로드는 이 시점에 이미 완료된 상태다. 아직 "저장하기"를 누르기 전이라
+      // 사진 촬영 후 모바일 브라우저가 페이지를 새로고침해버리면(백그라운드 전환 시 흔함)
+      // 방금 올린 사진이 어느 기록에도 연결되지 못하고 드라이브에만 남는 문제가 있었다.
+      // 그래서 저장 전 사진 목록을 로컬에 임시 보관해뒀다가, 다음에 앱을 열 때 자동으로 복원한다.
       STATE.photos.push(res.photo);
       renderPhotoPreview();
+      savePendingPhotos();
     }catch(e){
       toast('사진 업로드 실패: ' + e.message);
     }
   }
+}
+
+// 저장 전 업로드된 사진 목록을 로컬에 임시 저장 (새 기록 작성 중일 때만 — 수정 중엔 원본 사진과
+// 섞이지 않도록 대상에서 제외한다)
+function savePendingPhotos(){
+  if(STATE.editingId) return;
+  try{ localStorage.setItem('mt_pending_photos', JSON.stringify(STATE.photos)); }catch(e){}
+}
+function clearPendingPhotos(){
+  try{ localStorage.removeItem('mt_pending_photos'); }catch(e){}
+}
+function restorePendingPhotos(){
+  try{
+    var raw = localStorage.getItem('mt_pending_photos');
+    if(!raw) return;
+    var photos = JSON.parse(raw);
+    if(Array.isArray(photos) && photos.length > 0){
+      STATE.photos = photos;
+      renderPhotoPreview();
+      toast('저장하지 않은 사진 '+photos.length+'장을 불러왔습니다. 나머지 정보를 채운 뒤 저장해주세요');
+    }
+  }catch(e){}
 }
 
 function fileToBase64(file){
@@ -501,6 +535,7 @@ function renderPhotoPreview(){
     div.querySelector('.rm').addEventListener('click', function(){
       STATE.photos.splice(idx,1);
       renderPhotoPreview();
+      savePendingPhotos();
     });
     wrap.appendChild(div);
   });
@@ -612,6 +647,7 @@ function resetInputForm(){
   document.querySelectorAll('#f_revisit button, #f_parking button').forEach(function(b){b.classList.remove('on');});
   renderStars();
   renderPhotoPreview();
+  clearPendingPhotos();
   exitEditMode();
 }
 
