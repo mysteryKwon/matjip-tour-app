@@ -121,7 +121,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.4</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.5</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -129,7 +129,7 @@
 
   <!-- 입력 -->
   <section class="tab active" id="tab-input">
-    <h2 class="section-title">방문 기록 추가</h2>
+    <h2 class="section-title" id="inputTabTitle">방문 기록 추가</h2>
     <div class="card">
       <label class="field"><span class="lbl">방문일 · 시간</span>
         <div style="display:flex;gap:8px;">
@@ -167,6 +167,7 @@
       </label>
       <label class="field"><span class="lbl">메모</span><textarea id="f_memo" placeholder="맛, 분위기, 서비스 등 자유롭게"></textarea></label>
       <button class="btn" id="btnSubmitVisit">저장하기</button>
+      <button class="btn secondary" id="btnCancelEdit" hidden style="margin-top:8px;">수정 취소</button>
     </div>
   </section>
 
@@ -270,7 +271,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.4';
+var APP_VERSION = '1.0.5';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -288,7 +289,8 @@ var STATE = {
   selectMode: false,
   selectedIds: {},
   mapLoaded: false,
-  markers: []
+  markers: [],
+  editingId: null // null이면 새 기록 작성, id가 있으면 해당 기록을 수정하는 중
 };
 
 document.getElementById('verTag').textContent = 'v' + APP_VERSION;
@@ -439,6 +441,10 @@ function bindInputForm(){
   document.getElementById('f_time').value = today.toTimeString().slice(0,5);
 
   document.getElementById('btnSubmitVisit').addEventListener('click', submitVisit);
+  document.getElementById('btnCancelEdit').addEventListener('click', function(){
+    resetInputForm();
+    switchToTab('tab-list');
+  });
 }
 
 function bindYnToggle(id, onChange){
@@ -571,10 +577,18 @@ async function submitVisit(){
   };
 
   try{
-    await apiPost('addVisit', {visit: visit});
-    toast('저장되었습니다 ✅');
-    resetInputForm();
-    await refreshAll();
+    if(STATE.editingId){
+      await apiPost('updateVisit', {visit: Object.assign({id: STATE.editingId}, visit), requester: STATE.myName});
+      toast('수정되었습니다 ✅');
+      resetInputForm();
+      await refreshAll();
+      switchToTab('tab-list');
+    } else {
+      await apiPost('addVisit', {visit: visit});
+      toast('저장되었습니다 ✅');
+      resetInputForm();
+      await refreshAll();
+    }
   }catch(e){
     toast('저장 실패: ' + e.message);
   }
@@ -598,6 +612,55 @@ function resetInputForm(){
   document.querySelectorAll('#f_revisit button, #f_parking button').forEach(function(b){b.classList.remove('on');});
   renderStars();
   renderPhotoPreview();
+  exitEditMode();
+}
+
+// 목록/지도에서 "수정"을 누르면 입력 탭 폼에 기존 값을 채워넣고 수정 모드로 전환한다
+function enterEditMode(v){
+  document.getElementById('f_date').value = v.방문일 || '';
+  document.getElementById('f_time').value = v.방문시간 || '';
+  document.getElementById('f_name').value = v.가게명 || '';
+  document.getElementById('f_loc').value = v.위치 || '';
+  document.getElementById('f_menu').value = v.메뉴 || '';
+  document.getElementById('f_price').value = v.지출금액 || '';
+  document.getElementById('f_hours').value = v.영업시간 || '';
+  document.getElementById('f_waiting').value = v.웨이팅시간 || '';
+  document.getElementById('f_companions').value = v.동행자 || '';
+  document.getElementById('f_memo').value = v.메모 || '';
+
+  STATE.selectedCats = v.카테고리 ? String(v.카테고리).split(',').filter(Boolean) : [];
+  document.querySelectorAll('#f_cat .chip').forEach(function(c){
+    c.classList.toggle('selected', STATE.selectedCats.indexOf(c.textContent)>-1);
+  });
+
+  STATE.rating = Number(v.평점)||0;
+  renderStars();
+
+  STATE.revisit = v.재방문의사 || '';
+  document.querySelectorAll('#f_revisit button').forEach(function(b){
+    b.classList.toggle('on', b.getAttribute('data-v')===STATE.revisit);
+  });
+  STATE.parking = v.주차가능여부 || '';
+  document.querySelectorAll('#f_parking button').forEach(function(b){
+    b.classList.toggle('on', b.getAttribute('data-v')===STATE.parking);
+  });
+
+  STATE.photos = (v.사진||[]).slice();
+  renderPhotoPreview();
+
+  STATE.editingId = v.id;
+  document.getElementById('btnSubmitVisit').textContent = '수정하기';
+  document.getElementById('btnCancelEdit').hidden = false;
+  document.getElementById('inputTabTitle').textContent = '방문 기록 수정';
+  switchToTab('tab-input');
+  window.scrollTo(0,0);
+}
+
+function exitEditMode(){
+  STATE.editingId = null;
+  document.getElementById('btnSubmitVisit').textContent = '저장하기';
+  document.getElementById('btnCancelEdit').hidden = true;
+  document.getElementById('inputTabTitle').textContent = '방문 기록 추가';
 }
 
 // ---------------------------------------------------------------------
@@ -694,8 +757,12 @@ function openVisitDetail(v){
     (v.동행자?('<p>👥 '+escapeHtml(v.동행자)+'</p>'):'')+
     (v.메모?('<p style="white-space:pre-wrap;">📝 '+escapeHtml(v.메모)+'</p>'):'')+
     (photosHtml? ('<div>'+photosHtml+'</div>') : '')+
-    (canEdit ? '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn secondary small" data-del>삭제</button></div>' : '<p class="meta" style="margin-top:14px;">🔒 등록 7일 경과로 등록자만 수정/삭제할 수 있습니다.</p>');
+    (canEdit ? '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn small" data-edit style="flex:1;">✏️ 수정</button><button class="btn secondary small" data-del style="flex:1;">삭제</button></div>' : '<p class="meta" style="margin-top:14px;">🔒 등록 7일 경과로 등록자만 수정/삭제할 수 있습니다.</p>');
   var overlay = openModal(html, true);
+  overlay.querySelector('[data-edit]') && overlay.querySelector('[data-edit]').addEventListener('click', function(){
+    closeModal();
+    enterEditMode(v);
+  });
   overlay.querySelector('[data-del]') && overlay.querySelector('[data-del]').addEventListener('click', async function(){
     if(!confirm('이 방문 기록을 삭제할까요?')) return;
     try{
@@ -909,22 +976,37 @@ function renderMapMarkers(){
 // ---------------------------------------------------------------------
 // 사진첩 탭
 // ---------------------------------------------------------------------
+// 방문지(가게)별로 묶고, 같은 가게를 여러 번 방문했다면 그 안에서 다시 방문일자별로 나눠 보여준다.
+// 가게 그룹은 가장 최근 방문일 기준으로, 각 가게 안의 방문 회차도 최신순으로 정렬한다.
 function renderGallery(){
   var wrap = document.getElementById('galleryContainer');
   wrap.innerHTML = '';
-  var byStore = {};
+  var byStore = {}; // { 가게명: [{date, photos:[]}, ...] }
   visibleVisits().forEach(function(v){
     if(!v.사진 || v.사진.length===0) return;
     byStore[v.가게명] = byStore[v.가게명] || [];
-    v.사진.forEach(function(p){ byStore[v.가게명].push(p); });
+    byStore[v.가게명].push({date: v.방문일 || '', photos: v.사진});
   });
   var names = Object.keys(byStore);
   if(names.length===0){ wrap.innerHTML = '<div class="empty">아직 등록된 사진이 없습니다.</div>'; return; }
+
+  names.sort(function(a,b){
+    var latestA = byStore[a].reduce(function(m,e){ return e.date>m?e.date:m; }, '');
+    var latestB = byStore[b].reduce(function(m,e){ return e.date>m?e.date:m; }, '');
+    return latestB.localeCompare(latestA);
+  });
+
   names.forEach(function(name){
+    var visits = byStore[name].slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
     var group = document.createElement('div');
     group.className = 'gallery-group';
-    var grid = byStore[name].map(function(p){ return '<img src="'+p.thumbUrl+'" data-full="'+p.url+'">'; }).join('');
-    group.innerHTML = '<h3>'+escapeHtml(name)+'</h3><div class="gallery-grid">'+grid+'</div>';
+    var inner = '<h3>'+escapeHtml(name)+'</h3>';
+    var multi = visits.length > 1;
+    visits.forEach(function(entry){
+      if(multi) inner += '<div style="font-size:11.5px;color:var(--muted);margin:8px 0 4px;">'+escapeHtml(entry.date||'날짜 미상')+'</div>';
+      inner += '<div class="gallery-grid">'+entry.photos.map(function(p){ return '<img src="'+p.thumbUrl+'" data-full="'+p.url+'">'; }).join('')+'</div>';
+    });
+    group.innerHTML = inner;
     group.querySelectorAll('img').forEach(function(img){
       img.addEventListener('click', function(){ openLightbox(img.getAttribute('data-full')); });
     });

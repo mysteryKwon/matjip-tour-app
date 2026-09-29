@@ -145,6 +145,34 @@ function ensureHeadersOnSheet_(sheet, headers) {
 function ensureHeaders_() {
   getOrCreateSheet_(VISIT_SHEET_NAME, VISIT_HEADERS);
   getOrCreateSheet_(GROUP_SHEET_NAME, GROUP_HEADERS);
+  fixDateTextCells_();
+}
+
+// 기존 행 중 방문일/방문시간이 구글시트에 의해 실제 Date로 저장돼버린 것들을
+// 찾아서 문자열로 되돌리고, 셀 서식도 텍스트로 고정한다. "예전 기록 정렬 점검하기"
+// 버튼을 누르면 이 함수까지 같이 실행된다.
+function fixDateTextCells_() {
+  var sheet = getOrCreateSheet_(VISIT_SHEET_NAME, VISIT_HEADERS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var colMap = getColMap_(sheet);
+  var tz = Session.getScriptTimeZone() || 'Asia/Seoul';
+
+  ['방문일', '방문시간'].forEach(function (key) {
+    var col = colMap[key];
+    if (!col) return;
+    var range = sheet.getRange(2, col, lastRow - 1, 1);
+    var values = range.getValues();
+    var changed = false;
+    for (var i = 0; i < values.length; i++) {
+      if (values[i][0] instanceof Date) {
+        values[i][0] = Utilities.formatDate(values[i][0], tz, key === '방문일' ? 'yyyy-MM-dd' : 'HH:mm');
+        changed = true;
+      }
+    }
+    range.setNumberFormat('@'); // 앞으로도 자동 날짜 변환되지 않도록 텍스트로 고정
+    if (changed) range.setValues(values);
+  });
 }
 
 // 헤더이름 -> 1-based 컬럼번호 맵
@@ -212,7 +240,32 @@ function normalizeVisitOut_(obj) {
   } catch (e) {
     obj.사진 = [];
   }
+  coerceDateTextFields_(obj);
   return obj;
+}
+
+// 구글시트가 "2026-09-20", "15:32" 같은 문자열을 날짜/시간으로 자동 인식해서
+// 실제 Date 객체로 바꿔버리는 경우가 있다 (특히 새로 만든 시트의 기본 셀 서식이
+// "자동"이기 때문). 그렇게 되면 JSON으로 내보낼 때 "2026-09-20T15:00:00.000Z" 같은
+// 이상한 값으로 직렬화된다. 여기서 다시 원래 형식의 문자열로 되돌린다.
+function coerceDateTextFields_(obj) {
+  var tz = Session.getScriptTimeZone() || 'Asia/Seoul';
+  if (obj.방문일 instanceof Date) {
+    obj.방문일 = Utilities.formatDate(obj.방문일, tz, 'yyyy-MM-dd');
+  }
+  if (obj.방문시간 instanceof Date) {
+    obj.방문시간 = Utilities.formatDate(obj.방문시간, tz, 'HH:mm');
+  }
+  return obj;
+}
+
+// 날짜로 오인되기 쉬운 컬럼(방문일/방문시간)은 셀 서식을 "일반 텍스트"로 고정해서
+// 앞으로 저장할 때 구글시트가 다시 Date로 자동 변환하지 못하게 막는다.
+function forceTextFormatForDateCols_(sheet, colMap, rowNum) {
+  ['방문일', '방문시간'].forEach(function (key) {
+    var col = colMap[key];
+    if (col) sheet.getRange(rowNum, col).setNumberFormat('@');
+  });
 }
 
 function findVisitRow_(sheet, colMap, id) {
@@ -240,8 +293,10 @@ function addVisit_(visit) {
   if (Array.isArray(record.카테고리)) record.카테고리 = record.카테고리.join(',');
   if (Array.isArray(record.동행자)) record.동행자 = record.동행자.join(',');
 
+  var targetRow = sheet.getLastRow() + 1;
+  forceTextFormatForDateCols_(sheet, colMap, targetRow); // setValues보다 먼저 서식을 텍스트로 고정
   var row = objectToRow_(record, colMap, lastCol);
-  sheet.getRange(sheet.getLastRow() + 1, 1, 1, lastCol).setValues([row]);
+  sheet.getRange(targetRow, 1, 1, lastCol).setValues([row]);
   return normalizeVisitOut_(record);
 }
 
@@ -266,7 +321,9 @@ function updateVisit_(visit, requester) {
   if (Array.isArray(merged.사진)) merged.사진 = JSON.stringify(merged.사진);
   if (Array.isArray(merged.카테고리)) merged.카테고리 = merged.카테고리.join(',');
   if (Array.isArray(merged.동행자)) merged.동행자 = merged.동행자.join(',');
+  coerceDateTextFields_(merged); // 기존 셀이 이미 Date로 오염돼 있었다면 여기서 문자열로 되돌림
 
+  forceTextFormatForDateCols_(sheet, colMap, rowNum); // setValues보다 먼저 서식을 텍스트로 고정
   var row = objectToRow_(merged, colMap, lastCol);
   sheet.getRange(rowNum, 1, 1, lastCol).setValues([row]);
   return normalizeVisitOut_(merged);
