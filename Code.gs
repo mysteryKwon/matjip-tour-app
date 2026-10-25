@@ -13,7 +13,7 @@
  * "범위 크기가 잘못됨" 문제를 구조적으로 방지)
  */
 
-var APP_VERSION = '1.0.6';
+var APP_VERSION = '1.0.7';
 
 var VISIT_SHEET_NAME = '방문기록';
 var GROUP_SHEET_NAME = '그룹';
@@ -437,9 +437,12 @@ function uploadPhoto_(filename, mimeType, base64Data) {
   var file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   var fileId = file.getId();
+  // 'uc?export=view' 형식은 구글 드라이브가 외부 삽입(hotlink) 시 종종 막아버려서
+  // 사진첩에서 확대했을 때 깨진 이미지로 보이는 문제가 있었다. thumbnail 엔드포인트는
+  // 큰 사이즈(sz=w1600)를 요청해도 안정적으로 열리므로 원본 보기 URL도 이쪽으로 통일한다.
   return {
     fileId: fileId,
-    url: 'https://drive.google.com/uc?export=view&id=' + fileId,
+    url: 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600',
     thumbUrl: 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w480'
   };
 }

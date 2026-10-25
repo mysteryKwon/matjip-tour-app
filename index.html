@@ -121,7 +121,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.6</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.7</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -271,7 +271,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.6';
+var APP_VERSION = '1.0.7';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -1040,7 +1040,12 @@ function renderGallery(){
     var multi = visits.length > 1;
     visits.forEach(function(entry){
       if(multi) inner += '<div style="font-size:11.5px;color:var(--muted);margin:8px 0 4px;">'+escapeHtml(entry.date||'날짜 미상')+'</div>';
-      inner += '<div class="gallery-grid">'+entry.photos.map(function(p){ return '<img src="'+p.thumbUrl+'" data-full="'+p.url+'">'; }).join('')+'</div>';
+      inner += '<div class="gallery-grid">'+entry.photos.map(function(p){
+        // 확대용 URL은 저장된 p.url(uc?export=view 방식, 종종 hotlink가 막혀 깨짐) 대신
+        // fileId로 큰 사이즈 썸네일을 직접 구성한다 — v1.0.6 이전에 저장된 기존 사진도 함께 고쳐진다.
+        var fullUrl = p.fileId ? ('https://drive.google.com/thumbnail?id='+p.fileId+'&sz=w1600') : p.url;
+        return '<img src="'+p.thumbUrl+'" data-full="'+fullUrl+'">';
+      }).join('')+'</div>';
     });
     group.innerHTML = inner;
     group.querySelectorAll('img').forEach(function(img){
