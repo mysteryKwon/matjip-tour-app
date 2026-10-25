@@ -121,7 +121,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.7</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.8</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -139,6 +139,7 @@
       </label>
       <label class="field"><span class="lbl">가게명 *</span><input type="text" id="f_name" placeholder="예: OO식당"></label>
       <label class="field"><span class="lbl">위치 (주소 / 지역명)</span><input type="text" id="f_loc" placeholder="예: 서울 마포구 OO동"></label>
+      <label class="field"><span class="lbl">전화번호</span><input type="text" id="f_phone" placeholder="예: 02-1234-5678" inputmode="tel"></label>
       <label class="field"><span class="lbl">음식 카테고리 (다중 선택)</span>
         <div class="chips" id="f_cat"></div>
       </label>
@@ -271,7 +272,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.7';
+var APP_VERSION = '1.0.8';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -594,6 +595,7 @@ async function submitVisit(){
     방문시간: document.getElementById('f_time').value,
     가게명: name,
     위치: loc,
+    전화번호: document.getElementById('f_phone').value.trim(),
     위도: geo ? geo.lat : '',
     경도: geo ? geo.lng : '',
     카테고리: STATE.selectedCats.slice(),
@@ -632,6 +634,7 @@ async function submitVisit(){
 function resetInputForm(){
   document.getElementById('f_name').value = '';
   document.getElementById('f_loc').value = '';
+  document.getElementById('f_phone').value = '';
   document.getElementById('f_menu').value = '';
   document.getElementById('f_price').value = '';
   document.getElementById('f_hours').value = '';
@@ -657,6 +660,7 @@ function enterEditMode(v){
   document.getElementById('f_time').value = v.방문시간 || '';
   document.getElementById('f_name').value = v.가게명 || '';
   document.getElementById('f_loc').value = v.위치 || '';
+  document.getElementById('f_phone').value = v.전화번호 || '';
   document.getElementById('f_menu').value = v.메뉴 || '';
   document.getElementById('f_price').value = v.지출금액 || '';
   document.getElementById('f_hours').value = v.영업시간 || '';
@@ -787,6 +791,7 @@ function openVisitDetail(v){
     '<h3>'+escapeHtml(v.가게명)+'</h3>'+
     '<p class="meta" style="color:var(--muted);">'+escapeHtml(v.방문일)+' '+escapeHtml(v.방문시간||'')+' · 등록자: '+escapeHtml(v.등록자||'')+'</p>'+
     '<p>📍 '+escapeHtml(v.위치||'-')+'</p>'+
+    (v.전화번호?('<p>📞 <a href="tel:'+escapeHtml(String(v.전화번호).replace(/[^0-9+]/g,''))+'" style="color:var(--accent);text-decoration:none;">'+escapeHtml(v.전화번호)+'</a></p>'):'')+
     '<p>🍴 '+escapeHtml(v.메뉴||'-')+' · '+'★'.repeat(v.평점||0)+'</p>'+
     '<p>💰 '+(v.지출금액?Number(v.지출금액).toLocaleString()+'원':'-')+' · 재방문의사: '+(v.재방문의사==='Y'?'👍':v.재방문의사==='N'?'👎':'-')+'</p>'+
     '<p>🕐 '+escapeHtml(v.영업시간||'-')+' · 🚗 주차 '+(v.주차가능여부==='Y'?'가능':v.주차가능여부==='N'?'불가':'-')+' · ⏳ 웨이팅 '+escapeHtml(v.웨이팅시간||'-')+'</p>'+
@@ -856,6 +861,7 @@ function buildSingleDraft(v){
   lines.push(v.메모 || '전체적으로 만족스러운 방문이었습니다.');
   lines.push('');
   lines.push('## 이용 정보');
+  lines.push('- 전화번호: ' + (v.전화번호||'-'));
   lines.push('- 영업시간: ' + (v.영업시간||'-'));
   lines.push('- 주차: ' + (v.주차가능여부==='Y'?'가능':v.주차가능여부==='N'?'불가':'-'));
   lines.push('- 웨이팅: ' + (v.웨이팅시간||'없음'));
@@ -958,6 +964,7 @@ function buildMapCardHtml(v){
     var cats = String(v.카테고리).split(',').filter(Boolean);
     if(cats.length) rows.push({icon:'🍴', text: cats.join(' · ')});
   }
+  if(v.전화번호) rows.push({icon:'📞', text: v.전화번호});
   if(v.영업시간) rows.push({icon:'🕐', text: v.영업시간});
   if(v.주차가능여부) rows.push({icon:'🚗', text: '주차 ' + (v.주차가능여부==='Y'?'가능':'불가')});
   if(v.웨이팅시간) rows.push({icon:'⏳', text: '웨이팅 ' + v.웨이팅시간});
@@ -1009,6 +1016,21 @@ function renderMapMarkers(){
   if(any) window.__mtMap.fitBounds(bounds);
 }
 
+// 사진 객체의 fileId가 비어있는 매우 오래된 기록을 위해, thumbUrl/url 문자열에
+// 포함된 "id=FILEID" 패턴에서도 fileId를 추출할 수 있게 한다. v1.0.7에서 fileId
+// 필드만 보고 판단했는데도 일부 기존 사진이 계속 확대되지 않는다는 보고가 있어서
+// (아주 예전 버전엔 사진 객체에 fileId가 저장되지 않았을 가능성) 추가한 보강 조치.
+function resolvePhotoFullUrl(p){
+  var fid = p && p.fileId;
+  if(!fid){
+    var src = (p && (p.thumbUrl || p.url)) || '';
+    var m = src.match(/[?&]id=([^&]+)/);
+    if(m) fid = m[1];
+  }
+  if(fid) return 'https://drive.google.com/thumbnail?id='+fid+'&sz=w1600';
+  return (p && (p.url || p.thumbUrl)) || '';
+}
+
 // ---------------------------------------------------------------------
 // 사진첩 탭
 // ---------------------------------------------------------------------
@@ -1041,9 +1063,9 @@ function renderGallery(){
     visits.forEach(function(entry){
       if(multi) inner += '<div style="font-size:11.5px;color:var(--muted);margin:8px 0 4px;">'+escapeHtml(entry.date||'날짜 미상')+'</div>';
       inner += '<div class="gallery-grid">'+entry.photos.map(function(p){
-        // 확대용 URL은 저장된 p.url(uc?export=view 방식, 종종 hotlink가 막혀 깨짐) 대신
-        // fileId로 큰 사이즈 썸네일을 직접 구성한다 — v1.0.6 이전에 저장된 기존 사진도 함께 고쳐진다.
-        var fullUrl = p.fileId ? ('https://drive.google.com/thumbnail?id='+p.fileId+'&sz=w1600') : p.url;
+        // 확대용 URL은 저장된 p.url을 그대로 믿지 않고 resolvePhotoFullUrl로 매번 다시 구성한다
+        // (오래된 레코드는 uc?export=view 형식이거나 fileId 필드 자체가 없을 수 있음).
+        var fullUrl = resolvePhotoFullUrl(p);
         return '<img src="'+p.thumbUrl+'" data-full="'+fullUrl+'">';
       }).join('')+'</div>';
     });

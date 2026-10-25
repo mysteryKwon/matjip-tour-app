@@ -13,13 +13,13 @@
  * "범위 크기가 잘못됨" 문제를 구조적으로 방지)
  */
 
-var APP_VERSION = '1.0.7';
+var APP_VERSION = '1.0.8';
 
 var VISIT_SHEET_NAME = '방문기록';
 var GROUP_SHEET_NAME = '그룹';
 
 var VISIT_HEADERS = [
-  'id', '방문일', '방문시간', '가게명', '위치', '위도', '경도',
+  'id', '방문일', '방문시간', '가게명', '위치', '전화번호', '위도', '경도',
   '카테고리', '메뉴', '평점', '지출금액', '재방문의사',
   '영업시간', '주차가능여부', '웨이팅시간', '동행자',
   '사진', '등록자', 'groupId', '메모', '생성일시', '수정일시'
@@ -259,10 +259,11 @@ function coerceDateTextFields_(obj) {
   return obj;
 }
 
-// 날짜로 오인되기 쉬운 컬럼(방문일/방문시간)은 셀 서식을 "일반 텍스트"로 고정해서
-// 앞으로 저장할 때 구글시트가 다시 Date로 자동 변환하지 못하게 막는다.
+// 구글시트가 자동으로 다른 타입으로 오인하기 쉬운 컬럼들(방문일/방문시간은 날짜로,
+// 전화번호는 하이픈 없이 입력하면 숫자로 인식되어 맨앞 0이 사라질 수 있음)은 셀 서식을
+// "일반 텍스트"로 고정해서 앞으로 저장할 때 구글시트가 값을 변형하지 못하게 막는다.
 function forceTextFormatForDateCols_(sheet, colMap, rowNum) {
-  ['방문일', '방문시간'].forEach(function (key) {
+  ['방문일', '방문시간', '전화번호'].forEach(function (key) {
     var col = colMap[key];
     if (col) sheet.getRange(rowNum, col).setNumberFormat('@');
   });
