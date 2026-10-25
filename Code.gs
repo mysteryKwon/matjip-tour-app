@@ -13,7 +13,7 @@
  * "범위 크기가 잘못됨" 문제를 구조적으로 방지)
  */
 
-var APP_VERSION = '1.0.8';
+var APP_VERSION = '1.0.9';
 
 var VISIT_SHEET_NAME = '방문기록';
 var GROUP_SHEET_NAME = '그룹';
