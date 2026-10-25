@@ -127,7 +127,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.9</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.10</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -282,7 +282,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.9';
+var APP_VERSION = '1.0.10';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -809,8 +809,16 @@ function renderList(){
         '<div class="row1"><span class="name">'+escapeHtml(v.가게명)+'</span>'+checkHtml+'</div>'+
         '<div class="meta">'+escapeHtml(v.방문일||'')+' · '+escapeHtml(v.위치||'')+' · '+escapeHtml(v.등록자||'')+'</div>'+
         '<div class="meta"><span class="rating">'+'★'.repeat(v.평점||0)+'</span> '+(v.지출금액?Number(v.지출금액).toLocaleString()+'원':'')+'</div>'+
+        (v.메뉴 ? '<div class="meta">🍴 '+escapeHtml(v.메뉴)+'</div>' : '')+
+        ((v.전화번호||v.동행자) ? '<div class="meta">'+
+          (v.전화번호?('📞 <a href="tel:'+escapeHtml(String(v.전화번호).replace(/[^0-9+]/g,''))+'" class="phone-link" style="color:var(--accent);text-decoration:none;">'+escapeHtml(v.전화번호)+'</a>'):'')+
+          (v.전화번호&&v.동행자?' · ':'')+
+          (v.동행자?('👥 '+escapeHtml(v.동행자)):'')+
+        '</div>' : '')+
         (v.카테고리 ? '<div style="margin-top:4px;">'+String(v.카테고리).split(',').filter(Boolean).map(function(c){return '<span class="badge">'+escapeHtml(c)+'</span>';}).join('')+'</div>' : '')+
       '</div>';
+    var phoneLink = card.querySelector('.phone-link');
+    if(phoneLink) phoneLink.addEventListener('click', function(e){ e.stopPropagation(); });
     if(STATE.selectMode){
       card.addEventListener('click', function(){
         STATE.selectedIds[v.id] = !STATE.selectedIds[v.id];
