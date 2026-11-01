@@ -90,6 +90,7 @@
   .toolbar input[type=text]{flex:1;}
   .empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:13.5px;}
   #mapView{width:100%;height:calc(100vh - 220px);min-height:340px;border-radius:14px;overflow:hidden;background:var(--border);}
+  .mt-map-label{position:absolute;transform:translate(-50%,-100%);background:#ffffff;color:#241f1c;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:700;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.28);border:1.5px solid #ff7a45;pointer-events:none;}
   .gallery-group h3{font-size:13.5px;color:var(--muted);margin:16px 0 8px;}
   .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
   .gallery-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;}
@@ -134,7 +135,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.19</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.20</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -295,7 +296,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.19';
+var APP_VERSION = '1.0.20';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -314,6 +315,7 @@ var STATE = {
   selectedIds: {},
   mapLoaded: false,
   markers: [],
+  markerLabels: [], // 마커 위에 떠있는 "매장명 · N회" 라벨 오버레이들
   editingId: null // null이면 새 기록 작성, id가 있으면 해당 기록을 수정하는 중
 };
 
@@ -631,8 +633,10 @@ async function geocodeAddress(address){
   try{
     await loadMapsScript();
     if(!_geocoder) _geocoder = new google.maps.Geocoder();
+    // 주소만으로는 검색어가 모호할 경우 구글이 엉뚱한 나라의 동명 장소를 반환하는 경우가 있어
+    // (예: 지도가 몽골·중국 등 전혀 다른 위치로 찍히는 버그), 대한민국 지역으로 결과를 제한한다.
     var result = await new Promise(function(resolve){
-      _geocoder.geocode({address: address}, function(results, status){
+      _geocoder.geocode({address: address, region: 'kr', componentRestrictions: {country: 'KR'}}, function(results, status){
         if(status === 'OK' && results && results[0]) resolve(results[0]);
         else resolve(null);
       });
@@ -1120,6 +1124,7 @@ function ensureMap(){
   }
   loadMapsScript().then(function(){
     STATE.mapLoaded = true;
+    ensureMapLabelClass();
     window.__mtMap = new google.maps.Map(document.getElementById('mapView'), {
       center: {lat:37.5665, lng:126.9780}, zoom:11
     });
@@ -1128,6 +1133,41 @@ function ensureMap(){
     document.getElementById('mapHint').hidden = false;
     console.warn('지도 로드 실패', e);
   });
+}
+
+// 마커 위에 "매장명 · N회" 텍스트를 항상 떠있게 보여주기 위한 오버레이 클래스.
+// google.maps.Marker의 label 옵션은 핀 아이콘 안쪽 좁은 공간에만 그려져 긴 매장명을 담기 어려워서,
+// OverlayView로 핀 위쪽에 별도의 흰색 말풍선 라벨을 직접 그린다. google.maps가 로드된 후에만
+// google.maps.OverlayView를 상속할 수 있어 ensureMap()에서 지도 스크립트 로드가 끝난 뒤 한 번만 정의한다.
+function ensureMapLabelClass(){
+  if(window.__MtMapLabel) return;
+  function MtMapLabel(position, text, map){
+    this.position = position;
+    this.text = text;
+    this.div = null;
+    this.setMap(map);
+  }
+  MtMapLabel.prototype = new google.maps.OverlayView();
+  MtMapLabel.prototype.onAdd = function(){
+    var div = document.createElement('div');
+    div.className = 'mt-map-label';
+    div.textContent = this.text;
+    this.div = div;
+    this.getPanes().overlayLayer.appendChild(div);
+  };
+  MtMapLabel.prototype.draw = function(){
+    if(!this.div) return;
+    var proj = this.getProjection();
+    if(!proj) return;
+    var pos = proj.fromLatLngToDivPixel(this.position);
+    this.div.style.left = pos.x + 'px';
+    this.div.style.top = (pos.y - 42) + 'px';
+  };
+  MtMapLabel.prototype.onRemove = function(){
+    if(this.div && this.div.parentNode){ this.div.parentNode.removeChild(this.div); }
+    this.div = null;
+  };
+  window.__MtMapLabel = MtMapLabel;
 }
 
 // 지도 팝업 클릭 시 → 목록 탭과 동일한 상세보기 모달을 띄운다 (지도에서도 바로 수정/삭제까지 접근)
@@ -1139,7 +1179,7 @@ window.__openVisitFromMap = function(id){
 // 구글 지도 앱의 장소 카드 스타일(제목+열기버튼 / 주소 / 아이콘 정보줄)을 참고해서 팝업 구성.
 // InfoWindow는 항상 흰 배경 말풍선이고, 일부 브라우저의 "웹사이트 강제 다크 테마" 기능이 색을
 // 덮어쓰는 경우가 있어 모든 색을 라이트 고정값 + !important로 지정한다 (color-scheme:light).
-function buildMapCardHtml(v){
+function buildMapCardHtml(v, visitCount){
   var rows = [];
   if(v.카테고리){
     var cats = String(v.카테고리).split(',').filter(Boolean);
@@ -1170,6 +1210,7 @@ function buildMapCardHtml(v){
           'display:flex;align-items:center;justify-content:center;padding:0;">↗</button>'+
       '</div>'+
       (v.위치 ? '<div style="font-size:12px;color:#8a8178!important;margin-top:2px;">'+escapeHtml(v.위치)+'</div>' : '')+
+      (visitCount>1 ? '<div style="font-size:11.5px;color:#ff7a45!important;margin-top:4px;font-weight:700;">📌 이 매장 총 방문 '+visitCount+'회</div>' : '')+
       '<div style="color:#ff7a45!important;font-size:13px;margin-top:6px;">'+('★'.repeat(v.평점||0)||'')+
         (v.등록자? ' <span style="color:#8a8178!important;font-size:11.5px;">· '+escapeHtml(v.등록자)+'</span>' : '')+'</div>'+
       rowsHtml +
@@ -1182,19 +1223,46 @@ function renderMapMarkers(){
   if(!window.__mtMap) return;
   STATE.markers.forEach(function(m){ m.setMap(null); });
   STATE.markers = [];
+  STATE.markerLabels.forEach(function(l){ l.setMap(null); });
+  STATE.markerLabels = [];
   var bounds = new google.maps.LatLngBounds();
-  var any = false;
+  var positions = [];
+
+  // 같은 매장(가게명 기준)에 여러 번 방문한 기록은 마커 하나로 합치고, 그 위에
+  // "매장명 · N회" 라벨을 띄운다. 마커 위치/정보창은 가장 최근 방문 기록을 기준으로 한다.
+  var groups = {}; // 가게명 -> [visit, ...]
   visibleVisits().forEach(function(v){
     if(!v.위도 || !v.경도) return;
-    var pos = {lat:Number(v.위도), lng:Number(v.경도)};
-    var marker = new google.maps.Marker({position:pos, map:window.__mtMap, title:v.가게명});
-    var info = new google.maps.InfoWindow({content: buildMapCardHtml(v)});
+    var key = v.가게명 || '';
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(v);
+  });
+
+  Object.keys(groups).forEach(function(key){
+    var visits = groups[key];
+    visits.sort(function(a,b){ return (b.방문일+b.방문시간).localeCompare(a.방문일+a.방문시간); });
+    var rep = visits[0];
+    var pos = {lat:Number(rep.위도), lng:Number(rep.경도)};
+    var count = visits.length;
+    var marker = new google.maps.Marker({position:pos, map:window.__mtMap, title: key + ' · 방문 ' + count + '회'});
+    var info = new google.maps.InfoWindow({content: buildMapCardHtml(rep, count)});
     marker.addListener('click', function(){ info.open(window.__mtMap, marker); });
     STATE.markers.push(marker);
+
+    var label = new window.__MtMapLabel(new google.maps.LatLng(pos.lat, pos.lng), key + ' · ' + count + '회', window.__mtMap);
+    STATE.markerLabels.push(label);
+
     bounds.extend(pos);
-    any = true;
+    positions.push(pos);
   });
-  if(any) window.__mtMap.fitBounds(bounds);
+  if(positions.length === 1){
+    // 마커가 1개뿐일 때 fitBounds()를 쓰면 bounds의 가로/세로 폭이 0이 되어 브라우저에 따라
+    // 지도가 화면 전체(세계지도 수준)로 확 줄어드는 버그가 있어, 이 경우엔 직접 중심/줌을 지정한다.
+    window.__mtMap.setCenter(positions[0]);
+    window.__mtMap.setZoom(16);
+  } else if(positions.length > 1){
+    window.__mtMap.fitBounds(bounds);
+  }
 }
 
 // 사진 객체의 fileId가 비어있는 매우 오래된 기록을 위해, thumbUrl/url 문자열에
