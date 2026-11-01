@@ -85,6 +85,8 @@
   .visit-card .meta{font-size:12px;color:var(--muted);margin-top:2px;}
   .visit-card .rating{color:var(--accent);font-size:12.5px;}
   .visit-card .check{width:20px;height:20px;flex-shrink:0;}
+  .copy-btn{width:26px;height:26px;border-radius:50%;border:none;background:var(--bg);color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
+  .copy-btn:active{background:var(--border);}
   .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--accent-dim);color:var(--accent);font-size:11px;margin-right:4px;}
   .toolbar{display:flex;gap:8px;margin-bottom:10px;align-items:center;}
   .toolbar input[type=text]{flex:1;}
@@ -134,7 +136,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.13</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.14</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -294,7 +296,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.13';
+var APP_VERSION = '1.0.14';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -815,7 +817,7 @@ function renderList(){
     var card = document.createElement('div');
     card.className = 'card visit-card';
     var photo = (v.사진 && v.사진[0]) ? v.사진[0].thumbUrl : null;
-    var checkHtml = STATE.selectMode ? '<input type="checkbox" class="check" '+(STATE.selectedIds[v.id]?'checked':'')+'>' : '';
+    var checkHtml = STATE.selectMode ? '<input type="checkbox" class="check" '+(STATE.selectedIds[v.id]?'checked':'')+'>' : '<button class="copy-btn" data-copy title="복사">📋</button>';
     card.innerHTML =
       '<div class="thumb">'+(photo? '<img src="'+photo+'">' : '🍽️')+'</div>'+
       '<div class="body">'+
@@ -832,6 +834,8 @@ function renderList(){
       '</div>';
     var phoneLink = card.querySelector('.phone-link');
     if(phoneLink) phoneLink.addEventListener('click', function(e){ e.stopPropagation(); });
+    var copyBtn = card.querySelector('.copy-btn');
+    if(copyBtn) copyBtn.addEventListener('click', function(e){ e.stopPropagation(); copyToClipboard(buildCopyText(v)); });
     if(STATE.selectMode){
       card.addEventListener('click', function(){
         STATE.selectedIds[v.id] = !STATE.selectedIds[v.id];
@@ -856,6 +860,45 @@ function escapeHtml(s){
   });
 }
 
+// 클립보드 복사 (가능하면 navigator.clipboard, 안 되면 임시 textarea로 대체)
+function copyToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast('복사되었습니다 ✅'); }).catch(function(){ legacyCopy(text); });
+  } else {
+    legacyCopy(text);
+  }
+}
+function legacyCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try{ document.execCommand('copy'); toast('복사되었습니다 ✅'); }
+  catch(e){ toast('복사 실패 — 직접 선택해서 복사해주세요'); }
+  document.body.removeChild(ta);
+}
+
+// 목록/상세보기의 "복사" 버튼을 눌렀을 때 클립보드에 담을 텍스트 구성
+function buildCopyText(v){
+  var lines = [];
+  lines.push(v.가게명);
+  if(v.위치) lines.push('📍 '+v.위치);
+  if(v.전화번호) lines.push('📞 '+v.전화번호);
+  lines.push('🗓 '+(v.방문일||'')+(v.방문시간?(' '+v.방문시간):''));
+  if(v.메뉴) lines.push('🍴 '+v.메뉴);
+  if(v.평점) lines.push('⭐ '+'★'.repeat(v.평점));
+  if(v.지출금액) lines.push('💰 '+Number(v.지출금액).toLocaleString()+'원');
+  if(v.영업시간) lines.push('🕐 '+v.영업시간);
+  if(v.주차가능여부) lines.push('🚗 주차 '+(v.주차가능여부==='Y'?'가능':'불가'));
+  if(v.웨이팅시간) lines.push('⏳ 웨이팅 '+v.웨이팅시간);
+  if(v.동행자) lines.push('👥 '+v.동행자);
+  if(v.메모) lines.push('📝 '+v.메모);
+  return lines.join('\n');
+}
+
 function openVisitDetail(v){
   var canEdit = editableCheck(v);
   var photosHtml = (v.사진||[]).map(function(p){return '<img src="'+p.thumbUrl+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin:2px;">';}).join('');
@@ -871,8 +914,15 @@ function openVisitDetail(v){
     (v.동행자?('<p>👥 '+escapeHtml(v.동행자)+'</p>'):'')+
     (v.메모?('<p style="white-space:pre-wrap;">📝 '+escapeHtml(v.메모)+'</p>'):'')+
     (photosHtml? ('<div>'+photosHtml+'</div>') : '')+
-    (canEdit ? '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn small" data-edit style="flex:1;">✏️ 수정</button><button class="btn secondary small" data-del style="flex:1;">삭제</button></div>' : '<p class="meta" style="margin-top:14px;">🔒 등록 7일 경과로 등록자만 수정/삭제할 수 있습니다.</p>');
+    '<div style="display:flex;gap:8px;margin-top:14px;">'+
+      '<button class="btn secondary small" data-copy style="flex:1;">📋 복사</button>'+
+      (canEdit ? '<button class="btn small" data-edit style="flex:1;">✏️ 수정</button><button class="btn secondary small" data-del style="flex:1;">삭제</button>' : '')+
+    '</div>'+
+    (!canEdit ? '<p class="meta" style="margin-top:8px;">🔒 등록 7일 경과로 등록자만 수정/삭제할 수 있습니다.</p>' : '');
   var overlay = openModal(html, true);
+  overlay.querySelector('[data-copy]').addEventListener('click', function(){
+    copyToClipboard(buildCopyText(v));
+  });
   overlay.querySelector('[data-edit]') && overlay.querySelector('[data-edit]').addEventListener('click', function(){
     closeModal();
     enterEditMode(v);
