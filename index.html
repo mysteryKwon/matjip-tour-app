@@ -134,7 +134,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.17</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.19</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -295,7 +295,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.17';
+var APP_VERSION = '1.0.19';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -769,6 +769,53 @@ function exitEditMode(){
   document.getElementById('editBanner').hidden = true;
 }
 
+// 상세보기의 "복사해서 추가"를 누르면 같은 맛집 정보(사진 포함)를 입력 탭에 채워넣어
+// 새 방문 기록(같은 가게 재방문 등)을 빠르게 추가할 수 있게 한다. 기존 기록을 수정하는 게
+// 아니라 새 기록이므로 STATE.editingId는 설정하지 않고, 방문일시만 오늘/현재시간으로 채운다.
+function duplicateVisitAsNew(v){
+  exitEditMode();
+
+  document.getElementById('f_name').value = v.가게명 || '';
+  document.getElementById('f_loc').value = v.위치 || '';
+  document.getElementById('f_phone').value = v.전화번호 || '';
+  document.getElementById('f_menu').value = v.메뉴 || '';
+  document.getElementById('f_price').value = v.지출금액 || '';
+  document.getElementById('f_hours').value = v.영업시간 || '';
+  document.getElementById('f_waiting').value = v.웨이팅시간 || '';
+  document.getElementById('f_companions').value = v.동행자 || '';
+  document.getElementById('f_memo').value = v.메모 || '';
+
+  var now = new Date();
+  document.getElementById('f_date').value = now.toISOString().slice(0,10);
+  document.getElementById('f_time').value = now.toTimeString().slice(0,5);
+
+  STATE.selectedCats = v.카테고리 ? String(v.카테고리).split(',').filter(Boolean) : [];
+  document.querySelectorAll('#f_cat .chip').forEach(function(c){
+    c.classList.toggle('selected', STATE.selectedCats.indexOf(c.textContent)>-1);
+  });
+
+  STATE.rating = Number(v.평점)||0;
+  renderStars();
+
+  STATE.revisit = v.재방문의사 || '';
+  document.querySelectorAll('#f_revisit button').forEach(function(b){
+    b.classList.toggle('on', b.getAttribute('data-v')===STATE.revisit);
+  });
+  STATE.parking = v.주차가능여부 || '';
+  document.querySelectorAll('#f_parking button').forEach(function(b){
+    b.classList.toggle('on', b.getAttribute('data-v')===STATE.parking);
+  });
+
+  // 사진도 그대로 복사 (같은 드라이브 파일을 새 기록에서도 참조; 원본 기록에는 영향 없음)
+  STATE.photos = (v.사진||[]).slice();
+  renderPhotoPreview();
+
+  document.getElementById('inputTabTitle').textContent = '방문 기록 추가 (복사됨)';
+  switchToTab('tab-input');
+  window.scrollTo(0,0);
+  toast('같은 맛집 정보를 불러왔어요. 날짜·금액 등을 확인하고 저장하세요 ✅');
+}
+
 // ---------------------------------------------------------------------
 // 목록 탭
 // ---------------------------------------------------------------------
@@ -915,13 +962,14 @@ function openVisitDetail(v){
     (v.메모?('<p style="white-space:pre-wrap;">📝 '+escapeHtml(v.메모)+'</p>'):'')+
     (photosHtml? ('<div>'+photosHtml+'</div>') : '')+
     '<div style="display:flex;gap:8px;margin-top:14px;">'+
-      '<button class="btn secondary small" data-copy style="flex:1;">📋 복사</button>'+
+      '<button class="btn secondary small" data-copy style="flex:1;">📋 복사해서 추가</button>'+
       (canEdit ? '<button class="btn small" data-edit style="flex:1;">✏️ 수정</button><button class="btn secondary small" data-del style="flex:1;">삭제</button>' : '')+
     '</div>'+
     (!canEdit ? '<p class="meta" style="margin-top:8px;">🔒 등록 7일 경과로 등록자만 수정/삭제할 수 있습니다.</p>' : '');
   var overlay = openModal(html, true);
   overlay.querySelector('[data-copy]').addEventListener('click', function(){
-    copyToClipboard(buildCopyText(v));
+    closeModal();
+    duplicateVisitAsNew(v);
   });
   overlay.querySelector('[data-edit]') && overlay.querySelector('[data-edit]').addEventListener('click', function(){
     closeModal();
