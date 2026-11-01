@@ -102,11 +102,13 @@
   .bar-row .bar-bg{flex:1;height:9px;background:var(--border);border-radius:5px;overflow:hidden;}
   .bar-row .bar-fill{height:100%;background:var(--accent);}
   .bar-row .val{width:56px;text-align:right;color:var(--muted);flex-shrink:0;}
-  .day-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .day-row{display:flex;align-items:center;justify-content:space-between;padding:10px 2px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
   .day-row:last-child{border-bottom:none;}
+  .day-row:active{background:var(--bg);}
   .day-row .d{color:var(--text);font-weight:700;width:46px;flex-shrink:0;}
   .day-row .c{color:var(--muted);flex:1;padding-left:4px;}
-  .day-row .s{color:var(--text);font-weight:600;flex-shrink:0;}
+  .day-row .s{color:var(--text);font-weight:600;flex-shrink:0;margin-right:4px;}
+  .day-row .chev{color:var(--muted);flex-shrink:0;font-size:14px;}
   .seg{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:3px;margin-bottom:14px;}
   .seg button{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;}
   .seg button.active{background:var(--accent);color:#fff;}
@@ -132,7 +134,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.11</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.12</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -220,12 +222,10 @@
     <div class="seg" id="statPeriod">
       <button data-v="year" class="active">연도별</button>
       <button data-v="month">월별</button>
-      <button data-v="day">일별</button>
     </div>
     <div style="margin-bottom:14px;">
       <select id="statYearSel"></select>
       <input type="month" id="statMonthSel" hidden>
-      <input type="date" id="statDaySel" hidden>
     </div>
     <div class="stat-grid">
       <div class="stat-tile"><div class="num" id="statVisitCount">0</div><div class="lbl">방문 횟수</div></div>
@@ -294,7 +294,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.11';
+var APP_VERSION = '1.0.12';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -1164,11 +1164,9 @@ function bindStatsTab(){
   });
   document.getElementById('statYearSel').addEventListener('change', renderStats);
   document.getElementById('statMonthSel').addEventListener('change', renderStats);
-  document.getElementById('statDaySel').addEventListener('change', renderStats);
 
   var today = new Date();
   document.getElementById('statMonthSel').value = today.toISOString().slice(0,7); // YYYY-MM
-  document.getElementById('statDaySel').value = today.toISOString().slice(0,10); // YYYY-MM-DD
   updateStatSelectorVisibility();
 }
 
@@ -1176,7 +1174,6 @@ function updateStatSelectorVisibility(){
   var period = document.querySelector('#statPeriod button.active').getAttribute('data-v');
   document.getElementById('statYearSel').hidden = period !== 'year';
   document.getElementById('statMonthSel').hidden = period !== 'month';
-  document.getElementById('statDaySel').hidden = period !== 'day';
 }
 
 // 연도 선택지는 실제 방문 기록에 있는 연도 + 올해를 모아서 채운다 (선택값은 가능하면 유지)
@@ -1202,10 +1199,7 @@ function renderStats(){
     if(period==='year'){
       return vDate.slice(0,4) === document.getElementById('statYearSel').value;
     }
-    if(period==='month'){
-      return vDate.slice(0,7) === document.getElementById('statMonthSel').value; // YYYY-MM
-    }
-    return vDate.slice(0,10) === document.getElementById('statDaySel').value; // YYYY-MM-DD
+    return vDate.slice(0,7) === document.getElementById('statMonthSel').value; // YYYY-MM
   });
   var count = list.length;
   var totalSpend = list.reduce(function(s,v){ return s+(Number(v.지출금액)||0); },0);
@@ -1238,19 +1232,54 @@ function renderStats(){
     var byDay = {};
     list.forEach(function(v){
       var day = String(v.방문일).slice(8,10);
-      byDay[day] = byDay[day] || {count:0, spend:0};
+      byDay[day] = byDay[day] || {count:0, spend:0, visits:[]};
       byDay[day].count++;
       byDay[day].spend += (Number(v.지출금액)||0);
+      byDay[day].visits.push(v);
     });
     var days = Object.keys(byDay).sort(function(a,b){ return a-b; });
     dailyWrap.innerHTML = days.length ? days.map(function(d){
       var e = byDay[d];
-      return '<div class="day-row"><span class="d">'+d+'일</span><span class="c">방문 '+e.count+'건</span><span class="s">'+e.spend.toLocaleString()+'원</span></div>';
+      return '<div class="day-row" data-day="'+d+'"><span class="d">'+d+'일</span><span class="c">방문 '+e.count+'건</span><span class="s">'+e.spend.toLocaleString()+'원</span><span class="chev">›</span></div>';
     }).join('') : '<div class="empty">이 달의 방문 기록이 없습니다.</div>';
+    dailyWrap.querySelectorAll('.day-row').forEach(function(row){
+      row.addEventListener('click', function(){
+        var d = row.getAttribute('data-day');
+        openDayDetail(d, byDay[d].visits);
+      });
+    });
   } else {
     dailyTitle.hidden = true;
     dailyWrap.hidden = true;
   }
+}
+
+// 월별 집계의 일별 세부집계에서 특정 날짜를 누르면 그 날 방문한 기록들을 모달로 보여준다
+function openDayDetail(day, visits){
+  var monthVal = document.getElementById('statMonthSel').value; // YYYY-MM
+  var titleStr = monthVal.slice(0,4)+'년 '+Number(monthVal.slice(5,7))+'월 '+Number(day)+'일';
+  var sorted = visits.slice().sort(function(a,b){ return (a.방문시간||'').localeCompare(b.방문시간||''); });
+  var html =
+    '<button class="close-x" data-close>✕</button>'+
+    '<h3>'+escapeHtml(titleStr)+'</h3>'+
+    sorted.map(function(v){
+      var photo = (v.사진 && v.사진[0]) ? v.사진[0].thumbUrl : null;
+      return '<div class="card visit-card" data-id="'+v.id+'" style="cursor:pointer;">'+
+        '<div class="thumb">'+(photo? '<img src="'+photo+'">' : '🍽️')+'</div>'+
+        '<div class="body">'+
+          '<div class="row1"><span class="name">'+escapeHtml(v.가게명)+'</span></div>'+
+          '<div class="meta">'+escapeHtml(v.방문시간||'')+(v.메뉴?(' · '+escapeHtml(v.메뉴)):'')+'</div>'+
+          '<div class="meta"><span class="rating">'+'★'.repeat(v.평점||0)+'</span> '+(v.지출금액?Number(v.지출금액).toLocaleString()+'원':'')+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  var overlay = openModal(html, true);
+  overlay.querySelectorAll('[data-id]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var v = STATE.visits.find(function(x){ return x.id === el.getAttribute('data-id'); });
+      if(v){ closeModal(); openVisitDetail(v); }
+    });
+  });
 }
 
 // ---------------------------------------------------------------------
