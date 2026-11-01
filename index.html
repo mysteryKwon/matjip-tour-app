@@ -85,8 +85,6 @@
   .visit-card .meta{font-size:12px;color:var(--muted);margin-top:2px;}
   .visit-card .rating{color:var(--accent);font-size:12.5px;}
   .visit-card .check{width:20px;height:20px;flex-shrink:0;}
-  .copy-btn{width:26px;height:26px;border-radius:50%;border:none;background:var(--bg);color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
-  .copy-btn:active{background:var(--border);}
   .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--accent-dim);color:var(--accent);font-size:11px;margin-right:4px;}
   .toolbar{display:flex;gap:8px;margin-bottom:10px;align-items:center;}
   .toolbar input[type=text]{flex:1;}
@@ -136,7 +134,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.14</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.15</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -198,8 +196,9 @@
       <input type="text" id="listSearch" placeholder="가게명 · 메뉴 · 지역 검색">
       <button class="btn small secondary" id="btnSelectMode">선택</button>
     </div>
-    <div class="toolbar" id="selectToolbar" hidden>
+    <div class="toolbar" id="selectToolbar" hidden style="flex-wrap:wrap;">
       <span id="selectCount" style="font-size:13px;color:var(--muted);">0개 선택</span>
+      <button class="btn small secondary" id="btnCopySelected">📋 복사</button>
       <button class="btn small" id="btnMakeDraft">📝 블로그 초안 만들기</button>
     </div>
     <div id="listContainer"></div>
@@ -296,7 +295,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.14';
+var APP_VERSION = '1.0.15';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -783,6 +782,7 @@ function bindListTab(){
     renderList();
   });
   document.getElementById('btnMakeDraft').addEventListener('click', openBlogDraftModal);
+  document.getElementById('btnCopySelected').addEventListener('click', copySelectedVisits);
 }
 
 function visibleVisits(){
@@ -817,7 +817,7 @@ function renderList(){
     var card = document.createElement('div');
     card.className = 'card visit-card';
     var photo = (v.사진 && v.사진[0]) ? v.사진[0].thumbUrl : null;
-    var checkHtml = STATE.selectMode ? '<input type="checkbox" class="check" '+(STATE.selectedIds[v.id]?'checked':'')+'>' : '<button class="copy-btn" data-copy title="복사">📋</button>';
+    var checkHtml = STATE.selectMode ? '<input type="checkbox" class="check" '+(STATE.selectedIds[v.id]?'checked':'')+'>' : '';
     card.innerHTML =
       '<div class="thumb">'+(photo? '<img src="'+photo+'">' : '🍽️')+'</div>'+
       '<div class="body">'+
@@ -834,8 +834,6 @@ function renderList(){
       '</div>';
     var phoneLink = card.querySelector('.phone-link');
     if(phoneLink) phoneLink.addEventListener('click', function(e){ e.stopPropagation(); });
-    var copyBtn = card.querySelector('.copy-btn');
-    if(copyBtn) copyBtn.addEventListener('click', function(e){ e.stopPropagation(); copyToClipboard(buildCopyText(v)); });
     if(STATE.selectMode){
       card.addEventListener('click', function(){
         STATE.selectedIds[v.id] = !STATE.selectedIds[v.id];
@@ -944,6 +942,16 @@ function editableCheck(v){
   if(!v.생성일시) return true;
   var days = (Date.now() - new Date(v.생성일시).getTime())/(1000*60*60*24);
   return days <= 7;
+}
+
+// 선택 모드에서 체크한 기록들을 한 번에 복사 (각 기록을 buildCopyText로 만들어 구분선으로 이어붙인 목록)
+function copySelectedVisits(){
+  var ids = Object.keys(STATE.selectedIds).filter(function(k){return STATE.selectedIds[k];});
+  if(ids.length===0){ toast('목록에서 기록을 먼저 선택해주세요'); return; }
+  var picked = STATE.visits.filter(function(v){ return ids.indexOf(v.id)>-1; });
+  picked.sort(function(a,b){ return (a.방문일+a.방문시간).localeCompare(b.방문일+b.방문시간); });
+  var text = picked.map(buildCopyText).join('\n\n---\n\n');
+  copyToClipboard(text);
 }
 
 // 블로그 초안 생성 (클라이언트에서 텍스트 템플릿으로 생성)
