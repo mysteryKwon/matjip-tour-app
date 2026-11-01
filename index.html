@@ -134,7 +134,7 @@
 <body>
 
 <header class="topbar">
-  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.16</span></h1>
+  <h1>🍜 맛집투어관리 <span class="ver" id="verTag">v1.0.17</span></h1>
   <span id="whoTag" class="ver"></span>
 </header>
 
@@ -295,7 +295,7 @@
 /* =========================================================================
    맛집투어관리 앱 — 프론트엔드
    ========================================================================= */
-var APP_VERSION = '1.0.16';
+var APP_VERSION = '1.0.17';
 var CATEGORIES = ['한식','중식','일식','양식','카페·디저트','술집','기타'];
 var CONFIG = { API_URL: '', GOOGLE_MAPS_API_KEY: '' };
 var STATE = {
@@ -884,12 +884,13 @@ function legacyCopy(text){
 function buildCopyText(v){
   var lines = [];
   lines.push(v.가게명);
+  lines.push('🗓 '+(v.방문일||'')+(v.방문시간?(' '+v.방문시간):'')+(v.등록자?(' · 등록자: '+v.등록자):''));
   if(v.위치) lines.push('📍 '+v.위치);
   if(v.전화번호) lines.push('📞 '+v.전화번호);
-  lines.push('🗓 '+(v.방문일||'')+(v.방문시간?(' '+v.방문시간):''));
   if(v.메뉴) lines.push('🍴 '+v.메뉴);
   if(v.평점) lines.push('⭐ '+'★'.repeat(v.평점));
   if(v.지출금액) lines.push('💰 '+Number(v.지출금액).toLocaleString()+'원');
+  if(v.재방문의사) lines.push('재방문의사: '+(v.재방문의사==='Y'?'👍 예':'👎 아니오'));
   if(v.영업시간) lines.push('🕐 '+v.영업시간);
   if(v.주차가능여부) lines.push('🚗 주차 '+(v.주차가능여부==='Y'?'가능':'불가'));
   if(v.웨이팅시간) lines.push('⏳ 웨이팅 '+v.웨이팅시간);
